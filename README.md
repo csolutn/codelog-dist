@@ -68,7 +68,6 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial-
 
 - **ShareAlike**: Derivative works must be distributed under the same CC BY-NC-SA 4.0 license.
 
----
 ## 5. Citation (Required)
 
 To ensure academic integrity and support the sustainability of this research, please cite this system in any research papers or derivative software:
