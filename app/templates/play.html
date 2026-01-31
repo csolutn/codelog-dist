@@ -1,0 +1,555 @@
+{% set id = request.args.get('id', "") %}
+{% if id != "" %}
+{% extends "nonav.html" %}
+{% else %}
+{% extends "base.html" %}
+{% endif %}
+
+{% block head %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+{% endblock %}
+
+{% block content %}
+<!-- ──────────────────────────────────────────────── -->
+<!-- ❶ ID 입력 / 확인                                -->
+<!-- ──────────────────────────────────────────────── -->
+ <div class="row" style="{% if id != "" %}display: none;{% endif %}">
+<div class="form-group text-center d-flex align-items-end col-md-6" style="margin-top:-6">
+    <label for="mongoIdInput" class="form-label mr-2">id:</label>
+    <input type="text" id="mongoIdInput" class="form-control mr-2" placeholder="{{ id }}" value="{{ id }}" {% if id %} disabled {% endif %}>
+    <button id="fetchLogBtn" class="btn btn-primary">Confirm</button>
+</div>
+<div class="form-group text-center col-md-6 mt-4">
+    <input type="file" id="fileInput" class="form-control-file" accept=".json">
+</div>
+</div>
+<!-- ──────────────────────────────────────────────── -->
+<!-- ❷ JSON 파일 업로드                              -->
+<!-- ──────────────────────────────────────────────── -->
+
+
+<!-- ──────────────────────────────────────────────── -->
+<!-- ❸ 재생 컨트롤 (배속 · 일시정지)                 -->
+<!-- ──────────────────────────────────────────────── -->
+<div class="mt-1 d-flex flex-wrap align-items-center">
+    <div class="btn-group mr-2" role="group" aria-label="Speed buttons">
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="1.0">x1.0</button>
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="2.0">x2.0</button>
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="4.0">x4.0</button>
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="6.0">x6.0</button>
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="8.0">x8.0</button>
+        <button class="btn btn-outline-info btn-sm speed-btn" data-speed="10.0">x10.0</button>
+    </div>
+
+    <input type="number" id="customSpeedInput" class="form-control mt-3 mr-2" style="width: 85px;height: 87%;" step="0.1" min="0.1" placeholder="ex. 1.8">
+    <button id="setCustomSpeedBtn" class="btn btn-primary btn-sm mr-2">Set</button>
+
+    <button id="pausePlaybackBtn" class="btn btn-outline-warning btn-sm">Pause</button>
+</div>
+
+<!-- ──────────────────────────────────────────────── -->
+<!-- ❹ 텍스트 / 차트 영역                           -->
+<!-- ──────────────────────────────────────────────── -->
+<div class="row mt-3">
+    <div class="col-md-12 col-lg-6 mb-3 mb-lg-0">
+        <textarea id="playbackTextarea" class="form-control" style="height: 400px" readonly></textarea>
+        <div id="controls" class="text-center mt-3" style="display: none;">
+            <button id="startPlaybackBtn" class="btn btn-warning mr-2" disabled>Replay</button>
+            <button id="backToCodeBtn" class="btn btn-secondary">Back to Code</button>
+        </div>
+    </div>
+
+    <div class="col-md-12 col-lg-6" id="chartContainer" style="border: 1px solid #ccc; border-radius: 10px; padding: 10px; height: 420px;"  tabindex="0"  >
+        <canvas id="chart"></canvas>
+    </div>
+</div>
+
+<!-- ──────────────────────────────────────────────── -->
+<!-- ❺ 스크립트                                    -->
+<!-- ──────────────────────────────────────────────── -->
+<script>
+// ────────────────────────────────────────────────
+// ▣ 전역 변수
+// ────────────────────────────────────────────────
+let intLogData       = [];   // idx가 정수인 이벤트
+let charLogData      = [];   // idx가 문자인 이벤트
+let chartInstance    = null;
+let playbackTimeout  = null;
+let playbackSpeed    = 1.0;
+let currentIdx       = 0;
+let isPaused         = false;
+let lastMongoId      = "";
+let chartStartTimestamp = 0; // 차트 범위 시작 (ms)
+let chartEndTimestamp   = 0; // 차트 범위 끝   (ms)
+let minContentLength = 0; // 가장 짧은 content 길이
+let maxContentLength = 0; // 가장 짧은 content 길이
+let animFrameId      = null; // requestAnimationFrame id
+
+// ────────────────────────────────────────────────
+// ▣ DOM
+// ────────────────────────────────────────────────
+const el = id => document.getElementById(id);
+const playbackTextarea    = el("playbackTextarea");
+const startPlaybackBtn    = el("startPlaybackBtn");
+const fileInput           = el("fileInput");
+const backToCodeBtn       = el("backToCodeBtn");
+const fetchLogBtn         = el("fetchLogBtn");
+const mongoIdInput        = el("mongoIdInput");
+const pausePlaybackBtn    = el("pausePlaybackBtn");
+const customSpeedInput    = el("customSpeedInput");
+const setCustomSpeedBtn   = el("setCustomSpeedBtn");
+
+
+// ────────────────────────────────────────────────
+// ▣ 공통 함수
+// ────────────────────────────────────────────────
+function cancelAnim() {
+    if (animFrameId !== null) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+    }
+}
+
+function resetAll() {
+    clearTimeout(playbackTimeout);
+    cancelAnim();
+    isPaused = false;
+    currentIdx = 0;
+    playbackTextarea.value = "";
+    if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+    }
+    startPlaybackBtn.disabled = true;
+    pausePlaybackBtn.textContent = "Pause";
+}
+
+function getUrlParameter(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+}
+
+// ────────────────────────────────────────────────
+// ▣ 데이터 로드
+// ────────────────────────────────────────────────
+async function fetchLogData(mongoId) {
+    try {
+        const res = await fetch(`/get_log?id=${mongoId}`);
+        if (!res.ok) throw new Error("Log data not found.");
+        const data = await res.json();
+        handleLoadedLogData(data);
+    } catch (e) {
+        console.error(e.message);
+    } finally {
+    }
+}
+
+function handleLoadedLogData(raw) {
+    if (!Array.isArray(raw) || !raw.length) {
+        console.error("Invalid log");
+        return;
+    }
+    resetAll();
+
+    intLogData  = raw.filter(e => Number.isInteger(e.idx));
+    charLogData = raw.filter(e => !Number.isInteger(e.idx));
+
+    // ▸ 차트 범위 계산 (idx가 "a" "d" 제외)
+    const relevant = raw.filter(e => !(e.idx === 'a' || e.idx === 'd'));
+    chartStartTimestamp = Math.min(...relevant.map(e => e.timestamp));
+    chartEndTimestamp   = Math.max(...relevant.map(e => e.timestamp));
+    // 정수 인덱스 최소 content 길이 계산
+    minContentLength = Math.min(...intLogData.map(e => e.content.length));
+    maxContentLength = Math.max(...intLogData.map(e => e.content.length))-minContentLength;
+    if (maxContentLength < 5) {
+        maxContentLength = 20;
+    }
+
+    if (intLogData.length) {
+        startPlaybackBtn.disabled = false;
+        renderChart();
+        startPlaybackFromIndex(0);
+    }
+}
+
+// 파일 업로드
+fileInput.addEventListener('change', ev => {
+    const file = ev.target.files[0];
+    if (!file || file.type !== 'application/json') {
+        return console.error('Invalid file');
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+        loadingSpinnerFile.style.display = "block";
+        try {
+            handleLoadedLogData(JSON.parse(e.target.result));
+        } catch {
+            console.error('Parse error');
+        } finally {
+            loadingSpinnerFile.style.display = "none";
+        }
+    };
+    reader.readAsText(file);
+});
+
+// Confirm
+fetchLogBtn.addEventListener('click', () => {
+    const id = mongoIdInput.value.trim();
+    if (!id) {
+        return console.error('Invalid _id');
+    }
+    if (id !== lastMongoId) {
+        resetAll();
+        lastMongoId = id;
+    }
+    fetchLogData(id);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const idParam = getUrlParameter('id');
+    if (idParam) {
+        mongoIdInput.value = idParam;
+        lastMongoId = idParam;
+        fetchLogData(idParam);
+    }
+});
+
+// ────────────────────────────────────────────────
+// ▣ 재생
+// ────────────────────────────────────────────────
+function setScatter(x, y) {
+    const ds = chartInstance.data.datasets[chartInstance.data.datasets.length - 1];
+    ds.data = [{ x, y }];
+    chartInstance.update('none');
+}
+
+function animateSegment(startEntry, endEntry) {
+    cancelAnim();
+    if (!endEntry) return;
+
+    const duration = (endEntry.timestamp - startEntry.timestamp) / playbackSpeed;
+    const startTime = performance.now();
+    const xStart = (startEntry.timestamp - chartStartTimestamp) / 1000;
+    const yStart = startEntry.content.length;
+    const xEnd = (endEntry.timestamp - chartStartTimestamp) / 1000;
+    const yEnd = endEntry.content.length;
+
+    function step() {
+        if (isPaused) return;
+        const elapsed = performance.now() - startTime;
+        let t = elapsed / duration;
+        if (t > 1) t = 1;
+
+        const x = xStart + (xEnd - xStart) * t;
+        const y = yStart + (yEnd - yStart) * t;
+        setScatter(x, y);
+
+        if (t < 1) {
+            animFrameId = requestAnimationFrame(step);
+        }
+    }
+    animFrameId = requestAnimationFrame(step);
+}
+
+function startPlaybackFromIndex(start) {
+    if (!intLogData.length) {
+        return;
+    }
+    currentIdx = start;
+    clearTimeout(playbackTimeout);
+    cancelAnim();
+
+    const typeNext = () => {
+        if (currentIdx >= intLogData.length || isPaused) {
+            return;
+        }
+        const entry = intLogData[currentIdx];
+        const nextEntry = intLogData[currentIdx + 1];
+        playbackTextarea.value = entry.content;
+
+        playbackTextarea.value = entry.content;
+        const interval = nextEntry ? (nextEntry.timestamp - entry.timestamp) / playbackSpeed : 0;
+        setScatter((entry.timestamp - chartStartTimestamp) / 1000, entry.content.length);
+        animateSegment(entry, nextEntry);
+        currentIdx++;
+        if (nextEntry) {
+            playbackTimeout = setTimeout(typeNext, interval);
+        }
+    };
+    typeNext();
+}
+
+startPlaybackBtn.addEventListener('click', () => {
+    playbackTextarea.value = '';
+    startPlaybackFromIndex(0);
+});
+
+backToCodeBtn.addEventListener('click', () => {
+    window.location.href = '/';
+});
+
+pausePlaybackBtn.addEventListener('click', () => {
+    if (!intLogData.length) {
+        return;
+    }
+    if (!isPaused) {
+        clearTimeout(playbackTimeout);
+        cancelAnim();
+        isPaused = true;
+        pausePlaybackBtn.textContent = 'Resume';
+    } else {
+        isPaused = false;
+        pausePlaybackBtn.textContent = 'Pause';
+        startPlaybackFromIndex(currentIdx);
+    }
+});
+
+// 배속
+function updatePlaybackSpeed(newSpeed) {
+    const currentEntry = intLogData[currentIdx - 1];
+    const nextEntry = intLogData[currentIdx];
+    playbackSpeed = newSpeed;
+
+    // 현재 진행 중이면 다음 interval 재계산
+    if (!isPaused && nextEntry) {
+        clearTimeout(playbackTimeout);
+        cancelAnim();
+
+        const interval = (nextEntry.timestamp - currentEntry.timestamp) / playbackSpeed;
+        animateSegment(currentEntry, nextEntry);
+        playbackTimeout = setTimeout(() => startPlaybackFromIndex(currentIdx), interval);
+    }
+}
+
+// 📌 speed 버튼 클릭 → 재생속도 반영 + 업데이트
+[...document.querySelectorAll('.speed-btn')].forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.replace('btn-info', 'btn-outline-info'));
+        this.classList.replace('btn-outline-info', 'btn-info');
+        updatePlaybackSpeed(parseFloat(this.dataset.speed));
+    });
+});
+
+// 📌 custom speed 입력 → 재생속도 반영 + 업데이트
+setCustomSpeedBtn.addEventListener('click', () => {
+    const val = parseFloat(customSpeedInput.value);
+    if (isNaN(val) || val <= 0) return alert('Enter valid speed');
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.replace('btn-info', 'btn-outline-info'));
+    updatePlaybackSpeed(val);
+});
+
+// ────────────────────────────────────────────────
+// ▣ 차트
+// ────────────────────────────────────────────────
+
+
+function renderChart() {
+    if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+    }
+    if (!intLogData.length && !charLogData.length) {
+        chartInstance = new Chart(el('chart'), {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: []
+            }
+        });
+        return;
+    }
+
+    // 정수 인덱스 최소 content 길이 계산
+    minContentLength = Math.min(...intLogData.map(e => e.content.length));
+
+    const typingDataset = {
+        label: 'Δ Len',
+        type: 'line',
+        data: intLogData.map(e => ({
+            x: (e.timestamp - chartStartTimestamp) / 1000,
+            y: e.content.length - minContentLength
+        })),
+        borderColor: 'rgba(75,192,192,1)',
+        pointBackgroundColor: 'rgba(75,192,192,1)',
+        tension: 0
+    };
+
+    const colors = {
+        v: 'rgba(153,102,255,0.6)',
+        a: 'rgba(200,200,200,0.6)',
+        d: 'rgba(200,200,200,0.6)',
+        o: 'rgba(75,192,75,0.6)',
+        e: 'rgba(255,99,132,0.6)',
+        u: 'rgba(255,159,64,0.6)',
+        s: 'rgba(54,162,235,0.6)'
+    };
+    const labels = {
+        v: 'paste',
+        a: 'a',
+        d: 'd',
+        o: 'o',
+        e: 'e',
+        u: 'u',
+        s: 's'
+    };
+
+    const barDatasets = Object.keys(labels).map(k => ({
+        label: labels[k],
+        type: 'bar',
+        data: charLogData
+            .filter(e => e.idx === k)
+            .map(e => ({
+                x: (e.timestamp - chartStartTimestamp) / 1000,
+                y: Math.min(e.content.length, maxContentLength)
+            })),
+        backgroundColor: colors[k],
+        barThickness: 5,
+        maxBarThickness: 5,
+        borderWidth: 0
+    }));
+
+    const playbackDataset = {
+        label: 'dot',
+        data: [],
+        type: 'scatter',
+        backgroundColor: 'rgba(75,192,192,0.5)',
+        pointRadius: 8,
+        showLine: false,
+    };
+
+    // playbackDataset를 가장 앞으로 올리기 위해 마지막에 추가
+    chartInstance = new Chart(el('chart'), {
+        type: 'scatter',
+        data: {
+            datasets: [...barDatasets, typingDataset, playbackDataset]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'linear',
+                    min: 0,
+                    max: (chartEndTimestamp - chartStartTimestamp) / 1000,
+                    title: {
+                        display: true,
+                        text: 'Time Elapsed (s)'
+                    },
+                    ticks: {
+                        callback: v => v.toFixed(0)
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Δ Content Length'
+                    }
+                }
+            },
+            plugins: {
+                    zoom: {
+                    pan: {
+                        enabled: true,
+                        mode: 'x', // x축만 이동 가능
+                        modifierKey: null 
+                    },
+                    zoom: {
+                        wheel: {
+                            enabled: true,
+                            modifierKey: 'alt' // (선택) Alt 키로 휠 줌 허용
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        mode: 'x', // x축만 확대/축소
+                        limits: {
+                            x: {
+                                min: 0, // 최소 시간 (초 단위)
+                                max: (chartEndTimestamp - chartStartTimestamp) / 1000, // 최대 시간
+                                minRange: 2 // 최소 줌 범위 (초 단위) → 너무 확대 안 되게
+                            }
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `t=${ctx.raw.x.toFixed(1)}s, Δlen=${ctx.raw.y}`
+                    }
+                },
+                legend: {
+                    labels: {
+                        boxWidth: 10,
+                        boxHeight: 10
+                    }
+                },
+            },
+            onClick: e => {
+                const pts = chartInstance.getElementsAtEventForMode(
+                    e,
+                    'nearest',
+                    { intersect: true },
+                    true
+                );
+                if (pts.length) {
+                    const newIdx = pts[0].index;
+                    currentIdx = newIdx;
+                    playbackTextarea.value = intLogData[newIdx].content;
+                    setScatter(
+                        (intLogData[newIdx].timestamp - chartStartTimestamp) / 1000,
+                        intLogData[newIdx].content.length
+                    );
+
+                    if (!isPaused) {
+                        startPlaybackFromIndex(currentIdx);
+                    }
+                }
+            }
+        }
+    });
+}
+
+// scatter 위치도 Δ content length 로 맞춤
+function setScatter(x, y) {
+    const ds = chartInstance.data.datasets[chartInstance.data.datasets.length - 1];
+    ds.data = [{ x, y: y - minContentLength }];
+    chartInstance.update('none');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!chartInstance) return;
+
+    const panAmount = 1; // 초 단위로 이동
+    const xScale = chartInstance.scales.x;
+    let min = xScale.min;
+    let max = xScale.max;
+
+    if (e.key === 'ArrowLeft') {
+        min -= panAmount;
+        max -= panAmount;
+    } else if (e.key === 'ArrowRight') {
+        min += panAmount;
+        max += panAmount;
+    } else {
+        return; // 위아래 등 다른 키는 무시
+    }
+
+    // 범위 제한
+    const maxLimit = (chartEndTimestamp - chartStartTimestamp) / 1000;
+    if (min < 0) {
+        max += -min;
+        min = 0;
+    }
+    if (max > maxLimit) {
+        min -= max - maxLimit;
+        max = maxLimit;
+    }
+
+    chartInstance.options.scales.x.min = min;
+    chartInstance.options.scales.x.max = max;
+    chartInstance.update('none');
+});
+</script>
+{% endblock %}

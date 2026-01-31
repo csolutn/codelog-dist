@@ -1,0 +1,284 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+        <title>{% block title %}CodeLog{% endblock %}</title>
+</script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // 브라우저의 기본 언어 가져오기
+            var userLang = navigator.language || navigator.userLanguage;
+            
+            // <html> 태그의 lang 속성 설정
+            document.documentElement.lang = userLang;
+                    if (!window.name || window.name === '') {
+                if (window.location.pathname === '/') {
+                    window.name = 'code-tab';
+                } else {
+                    window.name = 'log-tab';
+                }
+            }
+        });
+
+    document.addEventListener('touchstart', function () {}, { passive: true });
+
+    function logout() {
+        fetch('/logout', { method: 'POST' })
+            .then(res => {
+                if (res.ok) {
+                    localStorage.setItem('logout-event', Date.now());
+                    window.location.href = '/';
+                    window.close();
+                } else {
+                    alert("Logout failed.");
+                }
+            })
+            .catch(err => {
+                alert("Logout error occurred.");
+                console.error("Logout error:", err);
+            });
+    }
+
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'logout-event') {
+            window.location.href = '/';
+            window.close();
+
+        }
+    });
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    {% block head %}{% endblock %}
+    <style>
+        .form-control {
+            border-radius: 0.25rem;
+            box-shadow: none;
+        }
+        .btn {
+            margin-top: 20px;
+            box-shadow: none;
+            font-weight: 500;
+        }
+        #problemForm {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #logOutput, #output, .output {
+                white-space: pre-wrap;
+                background-color: #f8f9fa;
+                padding: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                margin-top: 20px;
+        }
+
+        #buttons {
+            margin-top: 10px;
+        }
+        #playbackTextarea {
+        width: 100%;
+        height: 350px;
+        font-size: 16px;
+        margin-top: 20px;
+        font-family: 'JetBrains Mono' !important;
+        font-feature-settings: "liga" 0, "calt" 0 !important;
+
+        }
+        #controls {
+            margin-top: 20px;
+        }
+        #chartContainer {
+            margin-top: 20px;
+        }
+        .required::after {
+        content: " *";
+        color: red;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+            color: darkgray;
+        }
+    .footer {
+        height: 5vh; /* Bootstrap 기본 Navbar 높이와 동일 */
+        visibility: hidden; /* Footer를 보이지 않게 설정 */
+    }
+    /* 모든 스크롤바에 공통 적용 */
+/* 기본적으로 스크롤바를 숨김 */
+* {
+    scrollbar-width: thin; /* Firefox에서 스크롤바 숨기기 */
+}
+
+*::-webkit-scrollbar {
+    width: 12px; /* 크롬, 엣지에서 스크롤바 숨기기 */
+    /*height: 12px;*/
+}
+
+/* 마우스가 위로 올라오거나 스크롤할 때만 스크롤바 표시 */
+body:hover *::-webkit-scrollbar {
+    width: 12px; /* 수직 스크롤바 너비 */
+    /*height: 12px; /* 수평 스크롤바 높이 */
+    background-color: #f9f9f9; /* 트랙 배경색 */
+}
+
+body:hover *::-webkit-scrollbar-thumb {
+    background-color: #e0e0e0; /* 스크롤바 핸들 색상 */
+    border-radius: 4px; /* 둥근 스크롤바 */
+    transition: background-color 0.3s ease; /* 부드러운 색상 전환 */
+}
+
+body:hover *::-webkit-scrollbar-thumb:hover {
+    background-color: #cccccc; /* 마우스 오버 시 색상 */
+}
+
+/* Firefox용: 기본적으로 숨기고 스크롤 시 얇게 표시 */
+body:hover * {
+    scrollbar-width: thin; /* 얇은 스크롤바 */
+    scrollbar-color: #e0e0e0 #f9f9f9; /* 핸들 및 트랙 색상 */
+}
+
+body:hover *::-webkit-scrollbar {
+    display: block; /* 마우스가 올라오면 스크롤바 표시 */
+}
+</style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!--<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">-->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="/static/logo.ico" alt="CodeLog Icon" style="width: 32px; height: 32px; margin-right: 5px;">
+                CodeLog
+            </a>            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <b><a class="nav-link" href="/" onclick="openOrFocusTab('/', 'code-tab'); return false;" style="color: #0f0f70;">Code</a></b>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/log" onclick="openOrFocusTab('/log', 'log-tab'); return false;">Log</a>
+                    </li>
+                    <!--
+                        <li class="nav-item">
+                        <a class="nav-link" href="/final" onclick="openOrFocusTab('/final', 'log-tab'); return false;">Final</a>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="/prevlog" onclick="openOrFocusTab('/prevlog', 'log-tab'); return false;" style="color: #cccccc;">PrevLog(~7.30.)</a>
+                    
+                    -->
+                    <script>
+                        const tabRefs = {};
+
+                        function openOrFocusTab(url, name) {
+                            if (tabRefs[name] && !tabRefs[name].closed) {
+                                tabRefs[name].focus();
+                            } else {
+                                tabRefs[name] = window.open(url, name);
+                            }
+                        }
+                    </script>
+                    {% if is_admin %}
+                    <!-- 관리자만 볼 수 있는 메뉴 항목 -->
+                    <li class="nav-item d-none d-sm-block">
+                        <a class="nav-link" href="/play">Play</a>
+                    </li>
+                    <li class="nav-item d-none d-sm-block">
+                        <a class="nav-link" href="/admin">Admin</a>
+                    </li>
+                    <!--
+                                        <li class="nav-item d-none d-sm-block">
+                        <a class="nav-link" href="/admin/final">Admin-Final</a>
+                    </li>
+                -->
+                </ul>
+
+                    <div class="ms-auto mt-1" >
+                        <select id="dbSelector" class="form-select d-flex form-select-sm" style="width: 150px;align-content: right;" onchange="switchDB(this.value)" >
+                            <option value="">Change DB</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="ARCHIVE">ARCHIVE</option>
+                        </select>
+                    </div>
+                    {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-11 col-lg-10 col-xl-9" id="mainContent">
+        {% block content %}{% endblock %}
+        </div>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <!-- This footer is invisible and only serves as a spacer -->
+        </div>
+    </footer>
+    <script>
+        document.addEventListener('touchstart', function(){}, { passive: true });
+
+function switchDB(selected) {
+    if (!selected) return;
+    fetch('/select_db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ db: selected })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            // DB 변경 후 페이지 새로고침
+            window.location.reload();
+        } else {
+            alert('DB 변경 실패: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        console.error('DB 전환 오류:', err);
+        alert('DB 전환 중 오류 발생');
+    });
+}
+document.addEventListener('DOMContentLoaded', function () {
+    fetch('/get_selected_db')
+        .then(res => res.json())
+        .then(data => {
+            const selected = data.selected;
+            if (selected) {
+                const selector = document.getElementById("dbSelector");
+                const option = selector.querySelector(`option[value="${selected}"]`);
+                if (option) option.selected = true;
+            }
+        });
+});
+        </script>
+    <style>
+        body {
+            font-family: 'Pretendard', monospace;
+        }
+
+    
+        .navbar, .navbar-brand, .nav-link {
+        
+        font-family: 'JetBrains Mono' !important;
+        font-feature-settings: "liga" 0, "calt" 0 !important;
+
+    }
+    </style>
+</body>
+</html>

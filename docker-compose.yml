@@ -1,0 +1,65 @@
+services:
+  # 1. Flask App (codelog-ubuntu)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: codelog-ubuntu
+    ports:
+      - "8080:8080" # 외부(8080) -> 내부(8080)
+    env_file: .env
+    depends_on:
+      - mongodb-active
+      - mongodb-archive
+      - lambda-lite
+    networks:
+      - codelog-network
+
+  # 2. Lambda Lite (FastAPI)
+  lambda-lite:
+    build: ./lambda
+    container_name: lambda-lite
+    ports:
+      - "9100:8080" # 외부(9100) -> 내부(8080)
+    networks:
+      - codelog-network
+
+  # 3. MongoDB - Active (Codelog DB)
+  mongodb-active:
+    image: mongo:latest
+    container_name: mongodb-active
+    env_file: .env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./init-active-db.js:/docker-entrypoint-initdb.d/init-active-db.js:ro
+      - active_data:/data/db
+    networks:
+      - codelog-network
+
+  # 4. MongoDB - Archive (Historical Data)
+  mongodb-archive:
+    image: mongo:latest
+    container_name: mongodb-archive
+    env_file: .env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "27018:27017" # 외부(27018) -> 내부(27017)
+    volumes:
+      - ./init-archive-db.js:/docker-entrypoint-initdb.d/init-archive-db.js:ro
+      - archive_data:/data/db
+    networks:
+      - codelog-network
+
+networks:
+  codelog-network:
+    driver: bridge
+
+volumes:
+  active_data:
+  archive_data:

@@ -1,0 +1,151 @@
+# Translations template for PROJECT.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2024-12-10 17:55+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: app.py:64
+msgid "Problem not found"
+msgstr ""
+
+#: app.py:202
+msgid "Answer updated"
+msgstr ""
+
+#: app.py:214
+msgid "New answer created"
+msgstr ""
+
+#: app.py:216
+msgid "Error occurred while saving answer: "
+msgstr ""
+
+#: app.py:217
+msgid "Failed to save the answer"
+msgstr ""
+
+#: app.py:242
+msgid "Alias parameter is missing"
+msgstr ""
+
+#: app.py:250
+msgid "No problems found for the given alias"
+msgstr ""
+
+#: app.py:283 app.py:417
+msgid "There are missing required fields"
+msgstr ""
+
+#: app.py:293 app.py:406 app.py:429
+msgid "Login successful!"
+msgstr ""
+
+#: app.py:297 app.py:433
+msgid "Invalid password."
+msgstr ""
+
+#: app.py:307 app.py:443
+msgid "Account created and logged in successfully!"
+msgstr ""
+
+#: templates/index.html:15
+msgid "Alias:"
+msgstr ""
+
+#: templates/index.html:19 templates/log.html:14
+msgid "Student ID:"
+msgstr ""
+
+#: templates/index.html:23 templates/log.html:18
+msgid "Name:"
+msgstr ""
+
+#: templates/index.html:28 templates/log.html:23
+msgid "Password:"
+msgstr ""
+
+#: templates/index.html:34 templates/log.html:28
+msgid "Confirm"
+msgstr ""
+
+#: templates/index.html:39 templates/log.html:33
+msgid "Logout"
+msgstr ""
+
+#: templates/index.html:48 templates/index.html:53
+msgid "Login is required to submit a response "
+msgstr ""
+
+#: templates/index.html:49 templates/index.html:54 templates/log.html:47
+msgid "The password entered during the <b>first login</b> will be registered"
+msgstr ""
+
+#: templates/index.html:116
+msgid "An error occurred while fetching the information"
+msgstr ""
+
+#: templates/index.html:172
+msgid "Problem not found for alias"
+msgstr ""
+
+#: templates/index.html:220
+msgid "No problems found in the problem list."
+msgstr ""
+
+#: templates/index.html:224
+msgid "Sheet not found for alias"
+msgstr ""
+
+#: templates/index.html:275
+msgid "Select Language:"
+msgstr ""
+
+#: templates/index.html:289
+msgid "Enter Code:"
+msgstr ""
+
+#: templates/index.html:308
+msgid "Run Code"
+msgstr ""
+
+#: templates/index.html:317
+msgid "Submit"
+msgstr ""
+
+#: templates/index.html:434
+msgid "code is running..."
+msgstr ""
+
+#: templates/index.html:579
+msgid "Failed to save the answer log"
+msgstr ""
+
+#: templates/index.html:583
+msgid "Error occurred while saving the answer log:"
+msgstr ""
+
+#: templates/index.html:625
+msgid "Failed to fetch problem data for alias"
+msgstr ""
+
+#: templates/index.html:630
+msgid "Error fetching problem data"
+msgstr ""
+
+#: templates/log.html:77
+msgid "No data available"
+msgstr ""
+

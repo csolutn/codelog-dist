@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Log
+{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.css">
+
+
+{% endblock %}
+
+{% block content %}
+
+<!-- DataTables Bootstrap 5 CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.3/css/dataTables.bootstrap5.min.css">
+
+<form id="myForm" method="post" autocomplete="off">
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <label for="studentid" class="form-label required">{{_('Student ID:')}}</label>
+            <input type="text" id="studentid" name="studentid" class="form-control" value="{{ studentid }}" {% if studentid %} disabled {% endif %} required>
+        </div>
+        <div class="col-md-4">
+            <label for="name" class="form-label required">{{_('Name:')}}</label>
+            <input type="text" id="name" name="name" class="form-control" value="{{ name }}"{% if name %} disabled {% endif %} required>
+        </div>
+        {% if name == "" %}
+        <div class="col-md-3">
+            <label for="password" class="form-label required">{{_('Password:')}}</label>
+            <input type="password" id="password" name="password" class="form-control" {% if studentid %} disabled value="********"{% endif %} required>
+        </div>
+        {% endif %}
+        <div class="col-md-2 d-flex align-items-end">
+            <button id="confirmBtn" type="submit" class="btn btn-primary w-100" onclick="setAction('/log')">{{_('Confirm')}}</button>
+        </div>
+        {% if name != "" %}
+        <div class="col-md-2 d-flex align-items-end">
+            <button id="logoutButton" type="button" class="btn btn-secondary w-100" onclick="logout()">{{_('Logout')}}</button>
+        </div>
+        {% endif %}
+    </div>
+</form>
+<!--
+{% if message %}
+<div class="alert {% if 'successful' in message or '로그인' in message %}alert-success{% else %}alert-warning{% endif %} alert-dismissible fade show" role="alert" data-bs-dismiss="alert">
+    {{ message }}
+</div>
+{% elif studentid != "" %}
+<div></div>
+{% else %}
+<div class="alert alert-info" role="alert" data-bs-dismiss="alert">{{_('The password entered during the <b>first login</b> will be registered')}}</div>
+{% endif %}
+-->
+<!-- Placeholder for sheet alias button-->
+<div id="sheetmButtons" class="mb-4">
+    {% if number > 0 %}
+        {% for i in range(number) %}
+        <button 
+            class="btn btn-outline-info problem-btn" 
+            data-index="{{ i }}"
+            id="sheetButton{{ i }}"
+        >
+            {{ sheets[i] }}
+        </button>
+        {% endfor %}
+    {% endif %}
+</div>
+
+<!-- Placeholder for the default empty table -->
+<div id="defaultTable" class="table-container" style="display: block;">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>alias</th>
+                <th>timestamp</th>
+                <th>content</th>
+                <th>result</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="4" class="text-center">{{_('No data available')}}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+
+<!-- Placeholder for the table containers -->
+{% for i in range(number) %}
+    <div id="table{{ i }}" class="table-container mb-4" style="display: none;">
+        <table id="data-table-{{ i }}" class="table table-striped">
+            <thead>
+                <tr>
+                        <!-- 기본 헤더 설정 -->
+                        <th style="width: 15%;">alias</th>
+                        <th style="width: 20%;">timestamp</th>
+                        <th style="width: 50%;">content</th>
+                        <th style="width: 15%;">result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if sheets_response[i] %}
+                    {% for entry in sheets_response[i] %}
+                        <tr>
+                            <td>{{ entry.problem_alias }}</td> <!-- Problem Alias 값 -->
+                            {% for key, value in entry.items() if key != '_id' and key != 'problem_alias' %}
+                                {% if key == "timestamp" %}
+                                    <td class="timestamp-cell" style="width: 20%;" data-timestamp="{{ value }}"></td>
+                                {% elif key == "content" %}
+                                    <td class="content-cell" style="width: 50%;"><pre>{{ value }}</pre></td> <!-- 스타일 적용 -->
+                                {% elif key == "result" %}
+                                    <td style="width: 15%;">
+                                    {% if entry.result == "true" %}
+                                        <span style="color: #198754 !important; font-weight: bold;">&#10004;</span>
+                                    {% elif entry.result == "false" %}
+                                        <span style="color: #dc3545; font-weight: bold;">✗</span>
+                                    {% endif %}
+                                    </td>
+                                {% else %}
+                                    <td>{{ value }}</td>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <!-- 빈 데이터 처리 -->
+                    <tr>
+                        <td colspan="4" class="text-center">No data available</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+
+        </table>
+    </div>
+{% endfor %}
+
+<!-- DataTables JS and Bootstrap 5 integration -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap5.min.js"></script>
+<script>
+// Fade out warning alerts after a delay
+if (document.querySelector('.alert-warning')) {
+    setTimeout(() => {
+        document.querySelector('.alert-warning').classList.add('fade');
+        setTimeout(() => {
+            document.querySelector('.alert-warning').remove();
+        }, 1000); // Wait for fade transition
+    }, 2000); // Display for 3 seconds
+}
+
+</script>
+
+
+<script>
+function setAction(action) {
+    // 동적으로 폼의 action 변경
+    document.getElementById('myForm').action = action;
+}
+// Format timestamp to "YY.MM.DD HH:MM"
+function formatTimestamp(timestamp) {
+    if (!timestamp) return "";
+    const date = new Date(parseInt(timestamp)); // Convert timestamp to number
+    const yy = String(date.getFullYear()).slice(2); // Year
+    const mm = String(date.getMonth() + 1).padStart(2, '0'); // Month (0-based index)
+    const dd = String(date.getDate()).padStart(2, '0'); // Day
+    const hh = String(date.getHours()).padStart(2, '0'); // Hours
+    const min = String(date.getMinutes()).padStart(2, '0'); // Minutes
+    return `${yy}.${mm}.${dd} ${hh}:${min}`;
+}
+
+// Apply timestamp formatting to cells
+document.addEventListener("DOMContentLoaded", () => {
+    const timestampCells = document.querySelectorAll(".timestamp-cell");
+    timestampCells.forEach(cell => {
+        const timestamp = cell.getAttribute("data-timestamp");
+        cell.textContent = formatTimestamp(timestamp);
+    });
+
+    // Initialize DataTables only after tables are fully rendered
+    const tables = document.querySelectorAll(".table-container table");
+    tables.forEach((table) => {
+        if ($(table).find('tbody tr').length > 0) { // Ensure table has rows before initializing
+            $(table).DataTable({
+                paging: false,
+                searching: false,
+                ordering: false,
+                info: true
+            });
+        }
+    });
+});
+
+// JavaScript 함수: 특정 인덱스의 테이블을 표시
+function showTable(index) {
+    // 모든 테이블 숨기기
+    const tables = document.querySelectorAll(".table-container");
+    tables.forEach(table => {
+        table.style.display = "none";
+    });
+
+    // 모든 버튼 기본 상태로 변경
+    const buttons = document.querySelectorAll(".problem-btn");
+    buttons.forEach(button => {
+        button.classList.remove("btn-info");
+        button.classList.add("btn-outline-info");
+    });
+
+    // 선택된 테이블 표시
+    const selectedTable = document.getElementById(`table${index}`);
+    if (selectedTable) {
+        selectedTable.style.display = "block";
+    } else {
+        document.getElementById('defaultTable').style.display = "block";
+    }
+
+    // 선택된 버튼 강조
+    const selectedButton = document.getElementById(`sheetButton${index}`);
+    if (selectedButton) {
+        selectedButton.classList.remove("btn-outline-info");
+        selectedButton.classList.add("btn-info");
+    }
+}
+
+// 버튼 클릭 이벤트 리스너 추가
+document.addEventListener("DOMContentLoaded", () => {
+    const buttons = document.querySelectorAll(".problem-btn");
+    buttons.forEach(button => {
+        button.addEventListener("click", (event) => {
+            const index = event.target.getAttribute("data-index");
+            showTable(index);
+        });
+    });
+});
+</script>
+<style>
+    .alert {
+        margin-bottom: 0px;
+    }
+    /* content 열 스타일 */
+    td.content-cell {
+        max-width: 150px; /* 원하는 최대 높이 설정 */
+        overflow-y: auto; /* 세로 스크롤 추가 */
+        overflow-x: auto; /* 가로 스크롤 추가 */
+        white-space: pre; /* 줄바꿈 없이 공백 유지 */
+    }
+</style>
+
+
+{% endblock %}

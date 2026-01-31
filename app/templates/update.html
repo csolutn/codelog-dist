@@ -1,0 +1,195 @@
+
+    <h2 class="mb-4">Edit or Add a Problem</h2>
+    <div class="row mb-3">
+        <div class="col-sm-6 col-lg-9">
+            <label for="upalias" class="form-label required">Alias:</label>
+            <input type="text" id="upalias" name="alias" class="form-control" required>
+        </div>
+        <div class="d-flex mt-2 col-sm-6 col-lg-3">
+            <button type="button" onclick="fetchProblem()" class="btn btn-success me-2 col-7 w-100">Fetch Problem</button>
+            <button type="button" onclick="resetForm()" class="btn btn-secondary col-5 w-100">Reset</button>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="uptitle" class="form-label">Title:</label>
+        <input type="text" id="uptitle" name="uptitle" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label for="updesc" class="form-label">Description:</label>
+        <textarea id="updesc" name="updesc" rows="4" class="form-control"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label for="upph" class="form-label">Place Holder:</label>
+        <textarea id="upph" name="upph" rows="4" class="form-control"  onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <label for="upexampleInput" class="form-label">Example Input:</label>
+            <textarea id="upexampleInput" name="upexampleInput" rows="2" class="form-control"></textarea>
+        </div>
+    
+        <div class="col-md-6">
+            <label for="upexampleOutput" class="form-label">Example Output:</label>
+            <textarea id="upexampleOutput" name="upexampleOutput" rows="2" class="form-control"></textarea>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <label for="uptestInput" class="form-label">Test Input:</label>
+            <textarea id="uptestInput" name="uptestInput" rows="2" class="form-control"></textarea>
+        </div>
+    
+        <div class="col-md-6">
+            <label for="uptestOutput" class="form-label">Test Output:</label>
+            <textarea id="uptestOutput" name="uptestOutput" rows="2" class="form-control"></textarea>
+        </div>
+    </div>
+    
+    <div class="mb-3">
+        <label for="uplanguageSelect" class="form-label">Select Language:</label>
+        <select id="uplanguageSelect" class="form-control mb-3">
+            <option value=""></option>
+            <option value="python">Python</option>
+            <option value="c">C</option>
+        </select>
+    </div>
+
+    <button type="button" onclick="submitForm()" class="btn btn-primary">Submit</button>
+
+    <script>
+    function adjustTextareaHeight(textarea) {
+        const maxRows = 16; // 최대 행 수
+    const rowHeight = 20; // 각 행의 높이 (픽셀 단위)
+
+    // Reset the height to calculate the new required height
+    textarea.style.height = "auto";
+
+    // Calculate the new height based on content
+    const newHeight = textarea.scrollHeight;
+
+    // Set the max height to rowHeight * maxRows
+    const maxHeight = rowHeight * maxRows;
+
+    // Apply the height or max height, whichever is smaller
+    textarea.style.height = `${Math.min(newHeight, maxHeight)}px`;
+
+    // Optionally, you can also enforce `overflow-y` if content exceeds maxHeight
+    if (newHeight > maxHeight) {
+        textarea.style.overflowY = "scroll";
+    } else {
+        textarea.style.overflowY = "hidden";
+    }
+    }
+        async function fetchProblem() {
+            const alias = document.getElementById('upalias').value;
+
+            if (!alias) {
+                alert("Alias is required to fetch a problem.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/get_problem?alias=${alias}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                resetForm();
+
+                // Populate the form with the fetched data
+                document.getElementById('upalias').value = data.alias || '';
+                document.getElementById('uptitle').value = data.title || '';
+                document.getElementById('updesc').value = data.desc || '';
+                const upph = document.getElementById('upph')
+                upph.value = data.ph || '';
+                adjustTextareaHeight(upph)
+                document.getElementById('upexampleInput').value = data.example.input || '';
+                document.getElementById('upexampleOutput').value = data.example.output || '';
+                document.getElementById('uptestInput').value = data.test.input || '';
+                document.getElementById('uptestOutput').value = data.test.output || '';
+                document.getElementById('uplanguageSelect').value = data.lang || '';
+            } catch (error) {
+                console.error('Error:', error);
+                //alert('An error occurred while fetching the problem.');
+            }
+        }
+
+        async function submitForm() {
+            const alias = document.getElementById('upalias').value.trim();
+            const title = document.getElementById('uptitle').value;
+            const desc = document.getElementById('updesc').value;
+            const ph = document.getElementById('upph').value;
+            const exampleInput = document.getElementById('upexampleInput').value;
+            const exampleOutput = document.getElementById('upexampleOutput').value;
+            const testInput = document.getElementById('uptestInput').value;
+            const testOutput = document.getElementById('uptestOutput').value;
+            const lang = document.getElementById('uplanguageSelect').value;
+
+            const problemData = {
+                alias,
+                title,
+                desc,
+                ph,
+                example: {
+                    input: exampleInput,
+                    output: exampleOutput
+                },
+                lang,
+            };
+
+            if (testInput && testOutput) {
+                problemData.test = {
+                    input: testInput,
+                    output: testOutput
+                };
+            }
+
+            try {
+                const response = await fetch('/update_problem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(problemData)
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert('Problem successfully updated!');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while updating the problem.');
+            }
+        }
+
+        function resetForm() {
+    document.getElementById('upalias').value = '';
+    document.getElementById('uptitle').value = '';
+    document.getElementById('updesc').value = '';
+    document.getElementById('upph').value = '';
+    document.getElementById('upexampleInput').value = '';
+    document.getElementById('upexampleOutput').value = '';
+    document.getElementById('uptestInput').value = '';
+    document.getElementById('uptestOutput').value = '';
+    document.getElementById('uplanguageSelect').value = '';
+
+    // Adjust the height of textareas after resetting
+    ['updesc', 'upph', 'upexampleInput', 'upexampleOutput', 'uptestInput', 'uptestOutput'].forEach(id => {
+        const textarea = document.getElementById(id);
+        adjustTextareaHeight(textarea);
+    });
+}
+    </script>
+</body>

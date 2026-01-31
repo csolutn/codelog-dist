@@ -1,0 +1,138 @@
+
+<h2 class="mb-4">Add a New Problem</h2>
+    <div class="mb-3">
+        <label for="alias" class="form-label required">Alias:</label>
+        <input type="text" id="alias" name="alias" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label for="title" class="form-label">Title:</label>
+        <input type="text" id="title" name="title" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label for="desc" class="form-label">Description:</label>
+        <textarea id="desc" name="desc" rows="4" class="form-control"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label for="ph" class="form-label">Place Holder:</label>
+        <textarea id="ph" name="ph" rows="4" class="form-control" 
+        onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+    </div>
+
+    <div class = "row">
+        <div class="col-md-6">
+            <label for="exampleInput" class="form-label">Example Input:</label>
+            <textarea id="exampleInput" name="exampleInput" rows="2" class="form-control" 
+            onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+        </div>
+    
+        <div class="col-md-6">
+            <label for="exampleOutput" class="form-label">Example Output:</label>
+            <textarea id="exampleOutput" name="exampleOutput" rows="2" class="form-control"
+            onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+        </div>
+    </div>
+
+    <div class = "row">
+        <div class="col-md-6">
+            <label for="testInput" class="form-label">Test Input:</label>
+            <textarea id="testInput" name="testInput" rows="2" class="form-control"
+            onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+        </div>
+    
+        <div class="col-md-6">
+            <label for="testOutput" class="form-label">Test Output:</label>
+            <textarea id="testOutput" name="testOutput" rows="2" class="form-control"
+            onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'\t'+v.substring(e);this.selectionStart=this.selectionEnd=s+1;return false;}"></textarea>
+        </div>
+    </div>
+    
+    <div class="mb-3">
+        <label for="languageSelect" class="form-label">Select Language:</label>
+        <select id="languageSelect" class="form-control mb-3">
+            <option value=""></option>
+            <option value="python">Python</option>
+            <option value="c">C</option>
+        </select>
+    </div>
+
+    <button type="button" onclick="submitForm()" class="btn btn-primary">Add Problem</button>
+
+    <script>
+        function isValidProblemAlias(alias) {
+            return /^(?=.*[a-z])[a-z0-9\-_]+$/.test(alias)
+            }
+
+        function submitForm() {
+            const alias = document.getElementById('alias').value;
+            const title = document.getElementById('title').value;
+            const desc = document.getElementById('desc').value.replace("\n", "<br>");
+            const ph = document.getElementById('ph').value;
+            const exampleInput = document.getElementById('exampleInput').value;
+            const exampleOutput = document.getElementById('exampleOutput').value;
+            const testInput = document.getElementById('testInput').value;
+            const testOutput = document.getElementById('testOutput').value;
+            const lang = document.getElementById('languageSelect').value;
+
+            function n_to_br(desc) {
+                if (typeof desc !== 'string') {
+                    console.error('Input is not a string');
+                    return desc; // 입력이 문자열이 아니면 원래 값을 반환
+                }
+                return desc.replace(/\n/g, '<br>');
+            }
+
+
+            const problemData = {
+                alias: alias,
+                title: title,
+                desc: n_to_br(desc),
+                ph : ph,
+                example: {
+                    input: exampleInput,
+                    output: exampleOutput
+                },
+                lang : lang,
+            };
+            if (testInput.trim() !== "" && testOutput.trim() !== "") {
+                problemData.test = {
+                    input: testInput,
+                    output: testOutput
+                };
+            }
+
+            if (!alias) {
+            alert("Alias is a required field.");
+            return;
+            }
+
+            if(!isValidProblemAlias(alias)) {
+                alert("Problem alias 규칙: 소문자(필수)+특수문자+숫자 조합")
+                return;
+            }
+
+            fetch('/add_problem', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(problemData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert('Problem successfully added!');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the problem.');
+            });
+        }
+        
+    </script>
+

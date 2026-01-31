@@ -1,0 +1,998 @@
+{% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+<script src="static/js/cm-resize.min.js"></script>
+<!--<script src="https://unpkg.com/cm-resize@1"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
+<style>
+    .cm-resize-handle {
+        display: block;
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        z-index: 99;
+        width: 12px; 
+        height: 12px; 
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0,0 16,16'%3E%3Cpath stroke='lightgray' stroke-opacity='0.5' stroke-width='2' d='M-1,12 l18,-18 M-1,18 l18,-18 M-1,24 l18,-18 M-1,30 l18,-18'/%3E%3C/svg%3E") center/cover;
+        box-shadow: inset -1px -1px 0 0 silver;
+        cursor: nwse-resize;
+    }
+
+</style>
+
+{% endblock %}
+{% block content %}
+    {% set pw = request.args.get('pw', "true") %}
+    <!-- User Input Section -->
+    <div class="row mb-4">
+        <div class="{% if pw=='true' %}col-md-2{% else %}col-md-3{% endif %}">
+            <label for="aliasInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Alias:')}}</label>
+            <input type="text" id="aliasInput" class="form-control" autocomplete="off" {% if pw=='true' %} required {% endif %}>
+        </div>
+        <div class="col-md-3">
+            <label for="studentIdInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Student ID:')}}</label>
+            <input type="text" id="studentIdInput" class="form-control" autocomplete="off"  value="{{ studentid }}" {% if studentid %} disabled {% endif %} {% if pw=='true' %} required {% endif %}>
+        </div>
+        <div class="{% if pw=='true' %}col-md-3{% else %}col-md-4{% endif %}">
+            <label for="nameInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Name:')}}</label>
+            <input type="text" id="nameInput" class="form-control" autocomplete="off"  value="{{ name }}"  {% if name %} disabled {% endif %}{% if pw=='true' %} required {% endif %}>
+        </div>
+        {% if pw =='true' and name == "" %}
+        <div class="col-md-2" id="pw">
+            <label for="pwInput" class="form-label required" >{{_('Password:')}}</label>
+            <input type="password" id="pwInput" class="form-control" autocomplete="off" {% if name %} disabled value = ********* {% endif %} {% if pw=='true' %} required {% endif %}>
+        </div>
+        {% endif %}
+
+        <div class="col-md-2 d-flex align-items-end">
+            <button id="confirmBtn" class="btn btn-primary w-100">{{_('Confirm')}}</button>
+        </div>
+        <div class="col-md-2 d-flex align-items-end" id="logout">
+        {% if pw =='true' and name != "" %}
+        <button id="logoutButton" type="button" class="btn btn-secondary w-100" onclick="logout()">
+            {{_('Logout')}}
+        </button>
+        {% endif %}
+        </div>
+    </div>
+    {% if pw =='true' and studentid == "" %}
+    <div id = "alertMessage">
+        <div id="alertMessage-lg" class="alert alert-info d-none d-sm-none d-md-block d-lg-block" role="alert"> 
+            <ul style="margin-bottom:-1px">
+            <li>{{_('Login is required to submit a response ')}}</li>
+            <li>{{_('The password entered during the <b>first login</b> will be registered')}}</li></ul>
+        </div>
+        <div id="alertMessage-sm" class="alert alert-info d-md-none d-lg-none d-sm-block d-block" role="alert">
+            <ul style="margin-bottom:-1px">
+                <li>{{_('Login is required to submit a response ')}}</li>
+            <li>{{_('The password entered during the <b>first login</b> will be registered')}}</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Problem Number Buttons -->
+    <div id="problemButtons" class="mb-2" style="display: none;">
+        <!-- Buttons will be dynamically inserted here -->
+    </div>
+
+    <!-- Problems Container -->
+    <div id="problemsContainer">
+        <!-- Problem content, editors, and outputs will be dynamically inserted here -->
+    </div>
+
+    <!-- logFrame Container-->
+    {% set logframe = request.args.get('logframe', "false") %}
+    <div id="logFrame" style="{% if logframe=='false' %}display:none;{% endif %} margin-top:30px"></div>
+
+<script>
+    let docIds = {}; // Object to store docIds for each problem
+    let logs = {}; // Object to store logs for each problem
+    let editors = {}; // Object to store editors for each problem
+    let currentProblem = 0; // Set default problem index to 0
+    let textarea = {};
+    let flag;
+    let alias="";
+    let studentId="";
+    let studentName="";
+    let status ="fail";
+    let isDirtyFlags = {};  // 각 index에 대한 변경 여부 저장
+
+    // Render the code editor and output area on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        renderProblem(currentProblem, null); // Pass null for problemAlias initially
+        flag = 0;
+    });
+const pw = {{pw if pw else 'true'}};
+const login= {{'true' if name else 'false'}};
+document.getElementById('confirmBtn').addEventListener('click', async function() {
+    alias = document.getElementById('aliasInput').value;
+    studentId = document.getElementById('studentIdInput').value;
+    studentName = document.getElementById('nameInput').value;
+    status ="fail"; //reset
+    //if pw, check registration and login
+    if( pw && !login) {
+        password = document.getElementById('pwInput').value;
+        try {
+            const response = await fetch(`/code_login`, {
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ studentId, studentName, password })
+            });
+            const responseData = await response.json();
+            message = responseData.message;
+            status = responseData.status;
+            if(status != "success") alert(message);
+            if (message === "Account created and logged in successfully!" || message === "새로운 계정으로 로그인되었습니다") {
+                alert(message);
+            }
+        }
+        catch(error) {
+            message = error;
+            console.log(message)
+            alert("{{_('An error occurred while fetching the information')}}");
+        }
+    }
+    else {
+        status = "success";
+    }
+
+    //if success able submit and display = None for info
+    if(pw && status === "success") {
+        alertMessage = document.getElementById("alertMessage");
+        if(alertMessage) alertMessage.style.display = "none";
+        submitBtn = document.getElementById("submitBtn0");
+        submitBtn.disabled = false;
+
+    }
+    else {
+        alertMessage = document.getElementById("alertMessage");
+        if(alertMessage) alertMessage.style.display = "block";
+    }
+    //reset args
+    docIds = {}; 
+    logs = {}; 
+    editors = {}; 
+    currentProblem = 0; 
+    textarea = {};
+    if(status === "fail") {
+        // Clear the problem buttons and container
+        document.getElementById('problemButtons').style.display = 'none';
+        const problemsContainer = document.getElementById('problemsContainer');
+        problemsContainer.innerHTML = ''; // Clear previous problem
+
+        // Render a single problem editor with the fetched data
+        renderProblem(0, null);
+    }
+    if (status === "success") {
+        updateUIOnSuccess();
+    try { // Normal flow for multiple problems
+            const response = await fetch(`/get_sheet?alias=${alias}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    const problemList = data.problem_list;
+                    if (problemList && problemList.length > 1) {
+                        // Display problem number buttons
+                        const problemButtonsDiv = document.getElementById('problemButtons');
+                        problemButtonsDiv.innerHTML = ''; // Clear previous buttons
+                        problemButtonsDiv.style.display = 'block';
+
+                        // Clear previous problems
+                        const problemsContainer = document.getElementById('problemsContainer');
+                        problemsContainer.innerHTML = '';
+
+                        for (let i = 0; i < problemList.length; i++) {
+                            const problemAlias = problemList[i];
+                            // Create a button for each problem
+                            const btn = document.createElement('button');
+                            btn.id = `problemBtn${i}`;
+                            btn.className = 'btn btn-outline-secondary m-1';
+                            btn.innerText = `${problemAlias}`;
+                            btn.addEventListener('click', () => showProblem(i));
+                            problemButtonsDiv.appendChild(btn);
+
+                            // Render each problem
+                            await renderProblem(i, problemAlias);
+                        }
+
+                        // Show the first problem by default
+                        showProblem(0);
+                    }
+                    else if (problemList.length === 1 ){
+                        document.getElementById('problemButtons').style.display = 'none';
+                        const problemsContainer = document.getElementById('problemsContainer');
+                        problemsContainer.innerHTML = ''; // Clear previous problem
+
+                        // Render a single problem editor with the fetched data
+                        renderProblem(0, problemList[0]);
+                    }
+                    else {
+                        alert("{{_('No problems found in the problem list.')}}");
+                    }
+                }
+            } else {
+                alert("{{_('Sheet not found for alias')}}");
+                console.warn('Sheet not found for alias:', alias);
+            }
+        }
+     catch (error) {
+        alert(error);
+        console.error('Error:', error);
+    }
+}});
+
+function updateUIOnSuccess() {
+    // 1. studentIdInput 비활성화
+    const studentIdInput = document.getElementById("studentIdInput");
+    if (studentIdInput) {
+        studentIdInput.disabled = true;
+    }
+    const nameInput = document.getElementById("nameInput")
+    if (nameInput) nameInput.disabled = true;
+
+    // 2. pwInput 보이지 않기
+    const pwInputDiv = document.getElementById('pw');
+    if (pwInputDiv) {
+        pwInputDiv.style.display = "none";
+    }
+
+    // 3. confirm 버튼 옆에 로그아웃 버튼 보이기
+// 3. confirm 버튼 옆에 로그아웃 버튼 보이기
+const logoutDiv = document.getElementById("logout");
+
+if (!document.getElementById('logoutButton')) {
+    // 로그아웃 버튼 생성
+    const logoutButton = document.createElement("button");
+    logoutButton.id = "logoutButton";
+    logoutButton.className = "btn btn-secondary w-100";
+    logoutButton.textContent = "{{_('Logout')}}";  // 번역 함수 제거 또는 {{ _('Logout') }} 서버 측에서 렌더링되도록
+
+    // 버튼 클릭 시 logout() 호출
+    logoutButton.addEventListener("click", function (e) {
+        e.preventDefault();  // 기본 동작 방지 (폼 제출 X)
+        logout();            // logout 함수 호출
+    });
+
+    // <div id="logout"> 안에 버튼 추가
+    logoutDiv.appendChild(logoutButton);
+}
+}
+
+async function renderProblem(index, problemAlias) {
+            // Create problem content
+            const problemsContainer = document.getElementById('problemsContainer');
+            const problemDiv = document.createElement('div');
+            problemDiv.id = `problemDiv${index}`;
+
+            // Problem Title and Description
+            const title = document.createElement('h4');
+            title.id = `problemTitle${index}`;
+            title.innerHTML = `<strong></strong>`;
+            const desc = document.createElement('p');
+            desc.id = `problemDesc${index}`;
+            desc.innerText = '';
+            desc.style.marginBottom='10px';
+
+            // Example Section
+            const exampleSection = document.createElement('div');
+            exampleSection.id = `exampleSection${index}`;
+            exampleSection.style.display = 'none';
+            exampleSection.innerHTML = `
+                <h6>Example</h6>
+            `;
+
+            // Create a row to hold code editor and outputDiv
+            const editorOutputRow = document.createElement('div');
+            editorOutputRow.className = 'row align-items-stretch';
+
+            // Left column for code editor
+            const editorCol = document.createElement('div');
+
+            // Right column for output
+            const outputCol = document.createElement('div');
+
+            editorCol.className = 'col-md-7 d-flex flex-column editor-col'; 
+            outputCol.className = 'col-md-5 d-flex flex-column output-col';
+
+            // Language Selection (per problem)
+            const languageLabel = document.createElement('label');
+            languageLabel.setAttribute('for', `languageSelect${index}`);
+            languageLabel.className = 'form-label';
+            languageLabel.innerText = "{{_('Select Language:')}}";
+
+            const languageSelect = document.createElement('select');
+            languageSelect.id = `languageSelect${index}`;
+            languageSelect.className = 'form-control mb-3';
+            languageSelect.innerHTML = `
+                <option value="python">Python</option>
+                <option value="c">C</option>
+            `;
+
+            // Code Editor
+            const textareaLabel = document.createElement('label');
+            textareaLabel.setAttribute('for', `myTextarea${index}`);
+            textareaLabel.className = 'form-label';
+            textareaLabel.innerText = "{{_('Enter Code:')}}";
+
+            textarea[index] = document.createElement('textarea');
+            textarea = textarea[index]
+            textarea.id = `myTextarea${index}`;
+            textarea.className = 'form-control';
+            textarea.rows = 10;
+            textarea.style.height = "0";
+            // 숨기면서도 기능 유지
+            textarea.style.height = "0";
+            textarea.style.overflowX = 'hidden'; // 가로 스크롤바 숨김
+            textarea.style.whiteSpace = 'pre'; // 줄바꿈 없이 그대로 표시
+            textarea.style.overflowY = 'hidden'; // 세로 스크롤바만 보이게
+
+            // Buttons
+            const buttonsRow = document.createElement('div');
+            buttonsRow.className = 'row mt-0';
+
+            const runCol = document.createElement('div');
+            runCol.className = 'col-md-6';
+            const runBtn = document.createElement('button');
+            runBtn.id = `executeBtn${index}`;
+            runBtn.className = 'btn btn-primary btn-block mb-2';
+            runBtn.innerText = "{{_('Run Code')}}";
+            runCol.appendChild(runBtn);
+
+            const submitCol = document.createElement('div');
+            submitCol.className = 'col-md-6';
+            const submitBtn = document.createElement('button');
+            submitBtn.id = `submitBtn${index}`;
+            submitBtn.className = 'btn btn-success btn-block mb-2';
+            if( pw && status === "fail") submitBtn.disabled = true;
+            submitBtn.innerText = "{{_('Submit')}}";
+            submitCol.appendChild(submitBtn);
+
+            buttonsRow.appendChild(runCol);
+            buttonsRow.appendChild(submitCol);
+
+            // Output Div
+            const outputDiv = document.createElement('div');
+            outputDiv.id = `output${index}`;
+            outputDiv.className = 'output w-100 flex-fill overflow-auto';
+
+
+
+            // Append elements to editorCol
+            const editorDiv = document.createElement('div');
+            editorDiv.id = `editor${index}`;
+            editorDiv.className = 'editor w-100';
+            editorDiv.appendChild(languageLabel);
+            editorDiv.appendChild(languageSelect);
+            editorDiv.appendChild(textareaLabel);
+            editorDiv.appendChild(textarea);
+            editorDiv.appendChild(buttonsRow);
+            editorCol.appendChild(editorDiv);
+
+
+            // Append outputDiv to outputCol
+            outputCol.appendChild(outputDiv);
+
+            // Append editorCol and outputCol to editorOutputRow
+            editorOutputRow.appendChild(editorCol);
+            editorOutputRow.appendChild(outputCol);
+
+            // Assemble problemDiv
+            problemDiv.appendChild(title);
+            problemDiv.appendChild(desc);
+            problemDiv.appendChild(exampleSection);
+            problemDiv.appendChild(editorOutputRow); // Append the row containing editor and output
+
+            problemsContainer.appendChild(problemDiv);
+
+            // Initialize CodeMirror editor
+
+            const languageModes = {
+                        "python": "text/x-python",
+                        "c": "text/x-csrc"
+            };
+            const editor = CodeMirror.fromTextArea(textarea, {
+                lineNumbers: true,               // 줄 번호 표시
+                mode: languageModes["python"],                  // 문법 모드 (예: Python)
+                autoCloseBrackets: true,         // 괄호 자동 닫기
+                matchBrackets: true,             // 괄호 매칭
+                theme: "default",                // 테마
+                indentUnit: 4,                   // 자동 들여쓰기 크기
+                tabSize: 4,                      // 탭 크기
+                indentWithTabs: true,            // 자동 들여쓰기를 탭으로 설정
+                extraKeys: {
+                    Tab: function(cm) {
+                        if (cm.somethingSelected()) {
+                            // 선택한 영역을 들여쓰기
+                            cm.indentSelection("add");
+                        } else {
+                            // 탭 문자 삽입
+                            cm.replaceSelection("\t", "end");
+                        }
+                    },
+                    "Shift-Tab": function(cm) {
+                        // 선택한 영역을 내어쓰기
+                        cm.indentSelection("subtract");
+                    }
+                },
+                viewportMargin: Infinity         // 높이 자동 조정
+            });
+            editor.getWrapperElement().style.border = '1px solid #dee2e6';
+            editor.getWrapperElement().style.borderRadius = '5px';
+            editor.getWrapperElement().style.overflowX = 'hidden';          
+            editor.getWrapperElement().style.whiteSpace = 'pre-wrap';
+            editor.getWrapperElement().style.minHeight = '45vh';   
+            editor.getWrapperElement().style.height = '45vh';   
+            editor.getWrapperElement().style.overflowY = 'hidden';       
+  
+            
+            var handle = cmResize(editor, {
+                resizableWidth:  false,        //Which direction the editor can be resized (default: both width and height).
+                resizableHeight: true,
+                
+                cssClass: 'cm-resize-handle', //CSS class to use on the *default* resize handle.
+            });
+
+            editors[index] = editor;
+            logs[index] = [];
+            let idx = 0;
+            let lastTimestamp = null;
+
+            // Event Listeners for this problem
+            // 언어 변경 시 하이라이팅 업데이트
+            languageSelect.addEventListener('change', function() {
+                const selectedLanguage = languageSelect.value; // 선택된 언어
+                if (languageModes[selectedLanguage]) {
+                    editor.setOption("mode", languageModes[selectedLanguage]);
+                }
+            });
+            editor.on('change', function() {
+                isDirtyFlags[index] = true;  // 해당 문제에 변경사항 있음
+            });
+            editor.on('keyup', function() {
+                let currentTime = Date.now();
+                let timeInterval = lastTimestamp !== null ? currentTime - lastTimestamp : 0;
+                let content = editor.getValue();
+
+                idx += 1;
+
+                logs[index].push({
+                    "idx": idx,
+                    "timestamp": currentTime,
+                    "time interval": timeInterval,
+                    "content": content
+                });
+                addTableRow(index);
+                lastTimestamp = currentTime;
+            });
+            // Add this inside the renderProblem function, where you initialize the editor and set up other event listeners
+        
+        editor.on('paste', function(instance, event) {
+            let currentTime = Date.now();
+
+            // Prevent the default paste event so we can capture the content
+            event.preventDefault();
+
+            // Get pasted content from the clipboard
+            let pastedContent = (event.clipboardData || window.clipboardData).getData('text');
+
+            logs[index].push({
+                "idx": "v",
+                "timestamp": currentTime,
+                "time interval": null,
+                "content": pastedContent // Log only the pasted content
+            });
+            addTableRow(index);
+            // Insert the pasted content manually into the editor
+            instance.replaceSelection(pastedContent);
+        });
+
+        editor.on('drop', function(instance, event) {
+            let currentTime = Date.now();
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            // 드래그된 텍스트 추출
+            let droppedContent = event.dataTransfer.getData("text/plain");
+
+            if (droppedContent) {
+                // 로그에 기록
+                logs[index].push({
+                    "idx": "v",  // 붙여넣기와 동일하게 'v'로 표시
+                    "timestamp": currentTime,
+                    "time interval": null,
+                    "content": droppedContent  // 드롭된 텍스트 기록
+                });
+
+                addTableRow(index);
+
+                // 드롭 위치에 삽입
+                instance.replaceSelection(droppedContent);
+            }
+        });
+
+        
+
+        function syncOutputHeight() {
+            const editorHeight = editorDiv.offsetHeight;
+            outputDiv.style.maxHeight = editorHeight + 'px';
+        }
+
+            runBtn.addEventListener('click', async function() {
+                syncOutputHeight();
+                const code = editor.getValue();
+                const language = languageSelect.value;
+
+                outputDiv.textContent = `${language.toUpperCase()} {{_('code is running...')}}`;
+
+                try {
+                const response = await fetch('/api/lambda/invoke', {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code, language }),
+                });
+
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.error) {
+                            outputDiv.textContent = `error:\n${data.error}`;
+                        } else {
+                            outputDiv.textContent = ``;
+                            if(data.stdout){
+                                outputDiv.textContent = `${data.stdout}\n\n`;
+                                if(!data.stderr) {
+                                    logs[index].push ({
+                                        "idx": "o",
+                                        "timestamp": Date.now(),
+                                        "time interval": null,
+                                        "content": data.stdout
+                                    });
+                                    addTableRow(index);
+                                }
+                            }
+                            if(data.stderr) {
+                                outputDiv.innerHTML += `<code>error</code>\n${data.stderr}`;
+                                logs[index].push ({
+                                    "idx": "e",
+                                    "timestamp": Date.now(),
+                                    "time interval": null,
+                                    "content": refineStderr(data.stderr)
+                                });
+                                addTableRow(index);
+                            }
+                        }
+                    } else {
+                        const errorData = await response.json();
+                        outputDiv.textContent = `server error: ${errorData.error}`;
+                    }
+                } catch (err) {
+                    outputDiv.textContent = `request error:\n${err}`;
+                }
+            });
+            submitBtn.addEventListener('click', syncOutputHeight);
+
+            submitBtn.addEventListener('click', async function() {
+                syncOutputHeight();
+                const answer = editor.getValue();
+                const documentData = {
+                    _id: docIds[index],
+                    alias: alias || '',
+                    sid: studentId || '',
+                    name: studentName || '',
+                    problem_alias: problemAlias || '',
+                    content: answer,
+                    timestamp: Date.now(),
+                    log: logs[index],
+                };
+
+                // Remove '_id' if docId is 'local'
+                if (documentData._id === 'local') {
+                    delete documentData['_id'];
+                }
+
+                try {
+                    const response = await fetch('/save_response', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(documentData)
+                    });
+
+                    if (response.ok) {
+                        const responseData = await response.json();
+                        docIds[index] = responseData._id ? responseData._id.$oid : docIds[index];
+                        messageHeader = problemAlias? `${problemAlias}: ` : ``
+                        alert(messageHeader + responseData.message);
+
+                        if (responseData.success === "true") {
+                            logs[index].push ({
+                                    "idx": "s",
+                                    "timestamp": Date.now(),
+                                    "time interval": null,
+                                    "content": editor.getValue()
+                                });
+                            addTableRow(index);
+                            isDirtyFlags[index] = false;  // 저장 성공했으므로 dirty 초기화
+
+                            }
+                        
+                        if(responseData.success === "false") {
+                            logs[index].push ({
+                                    "idx": "u",
+                                    "timestamp": Date.now(),
+                                    "time interval": null,
+                                    "content": editor.getValue()
+                                });
+                                if (responseData.debug !== "") {
+                            outputDiv.innerHTML = responseData.debug;
+                            }                           
+                            addTableRow(index);
+                            }
+
+                        const problemButton = document.getElementById(`problemBtn${index}`);
+                        if (problemButton) {
+                            // 특정 클래스만 제거하는 함수
+                            function resetStatusClasses(button) {
+                                button.classList.remove('success', 'unsuccess', 'submitted');
+                            }
+
+                            // 상태에 따라 클래스 업데이트
+                            if (responseData.success === "true") {
+                                resetStatusClasses(problemButton); // 상태 관련 클래스 제거
+                                problemButton.classList.add('success'); // 성공 상태 추가
+                            } else if (responseData.success === "false") {
+                                resetStatusClasses(problemButton); // 상태 관련 클래스 제거
+                                problemButton.classList.add('unsuccess'); // 실패 상태 추가
+                            } else {
+                                resetStatusClasses(problemButton); // 상태 관련 클래스 제거
+                                problemButton.classList.add('submitted'); // 제출 상태 추가
+                            }
+                        }
+                        else {
+                            const title = document.getElementById(`problemTitle${index}`);
+                            title_val = title.innerHTML;
+
+                            if (title_val !== "<strong></strong>") {
+                                const existingIcon = title.querySelector('.result-icon');  // 기존 아이콘만 찾음
+                                if (existingIcon) {
+                                    title.removeChild(existingIcon);  // 아이콘만 삭제
+                                }
+
+                                const resultIcon = document.createElement('span');
+                                resultIcon.className = 'result-icon';  // 삭제 대상 지정
+                                resultIcon.style.marginLeft = '10px';
+                                resultIcon.style.fontWeight = 'bold';
+
+                                if (responseData.success === "true") {
+                                    resultIcon.textContent = '✓';
+                                    resultIcon.style.color = '#198754'; // Success 색상
+                                } else if (responseData.success === "false") {
+                                    resultIcon.textContent = '✗';
+                                    resultIcon.style.color = '#dc3545'; // Danger 색상
+                                }
+
+                                title.appendChild(resultIcon);  // 원래 텍스트는 그대로 두고 아이콘만 추가
+                            }
+                        }
+
+                    } else {
+                        console.error('Failed to save the answer log');
+                        alert("{{_('Failed to save the answer log')}}")
+                    }
+                } catch (error) {
+                    console.error('Error occurred while saving the answer log:', error);
+                    alert("{{_('Error occurred while saving the answer log:')}}")
+                }
+            });
+
+            // If problemAlias is provided, fetch and display problem data
+            if (problemAlias) {
+                try {
+                    const response = await fetch(`/get_problem?alias=${problemAlias}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (!data.error) {
+                            // Update problem title and description
+                            title.innerHTML = `<strong>${data.title || ''}</strong>`;
+                            desc.innerHTML = data.desc || '';
+
+                            // Update example section
+                            if (data.example) {        
+                                if(data.example.output) {
+                                const inputOutputContainer = document.createElement('div');
+
+                                if (data.example.input) {
+                                    // 입력과 출력이 모두 있는 경우: 두 개의 컬럼으로 출력
+                                    inputOutputContainer.style.display = 'flex';
+                                    inputOutputContainer.style.gap = '50px'; // 컬럼 간격 추가
+
+                                    const inputColumn = document.createElement('div');
+                                    inputColumn.style.flex = '0'; // 동일한 너비
+                                    inputColumn.innerHTML = `<pre><b>Input</b>: ${data.example.input}</pre>`;
+
+                                    const outputColumn = document.createElement('div');
+                                    outputColumn.style.flex = '1'; // 동일한 너비
+                                    outputColumn.innerHTML = `<pre><b>Output</b>: ${data.example.output || ''}</pre>`;
+                                    function gml(text) {
+                                        if (!text) return 0;
+                                        return Math.max(...text.split('\n').map(line => line.length));
+                                    }
+                                    // 조건: Output이 넘치면 block으로 재배치
+                                    if ((gml(data.example.output) + gml(data.example.input))>100) { 
+                                        inputOutputContainer.style.display = 'block'; // 세로 배치로 변경
+                                        inputColumn.style.marginBottom = '0px'; // 입력과 출력 간격 추가
+                                            // Reset any leftover styles from flex layout
+                                            inputOutputContainer.style.flexDirection = ''; // flex-direction 초기화
+                                            inputColumn.style.flex = '';
+                                            outputColumn.style.flex = '';
+                                    }
+
+                                    inputOutputContainer.appendChild(inputColumn);
+                                    inputOutputContainer.appendChild(outputColumn);
+                                } else {
+                                    // 입력이 없으면 출력만 표시
+                                    inputOutputContainer.style.display = 'block';
+                                    inputOutputContainer.innerHTML = `<pre><b>Output</b>: ${data.example.output || ''}</pre>`;
+                                }
+
+                                // 기존 섹션에 내용 추가
+                                exampleSection.appendChild(inputOutputContainer);
+                                exampleSection.style.display = 'block'; // 섹션 표시
+                            } else {
+                                // 예제가 없는 경우 섹션 숨김
+                                const exampleSection = document.getElementById(`exampleSection${index}`);
+                                exampleSection.style.display = 'none';
+                            }}
+
+                            // Set language
+                            if (data.lang) {
+                                languageSelect.value = data.lang;
+                                // Hide language label and select
+                                languageLabel.style.display = 'none';
+                                languageSelect.style.display = 'none';
+                                
+                            const selectedLanguage = languageSelect.value; // 선택된 언어
+                             if (languageModes[selectedLanguage]) {
+                            editor.setOption("mode", languageModes[selectedLanguage]);
+                            }
+
+                                // Increase editor height
+                                const currentHeight = parseInt(window.getComputedStyle(editor.getWrapperElement()).height, 10);
+                                editor.getWrapperElement().style.height = (currentHeight + 90) + 'px'; // Adjust height by 40px
+                                editor.refresh();
+                            }
+
+                            // Set placeholder code
+                            editor.setValue(data.ph || "");
+                        }
+                    } else {
+                        console.error('Failed to fetch problem data for alias:', problemAlias);
+                        alert("{{_('Failed to fetch problem data for alias')}}")
+
+                    }
+                } catch (error) {
+                    console.error('Error fetching problem data:', error);
+                    alert("{{_('Error fetching problem data')}}")
+
+                }
+            }
+        const logFrame = document.getElementById('logFrame');
+        isDirtyFlags[index] = false;
+        renderTable(index);
+        }
+    
+
+        function renderTable(index) {
+        const logFrame = document.getElementById('logFrame');
+        const frameDiv = document.createElement('div');
+        frameDiv.id =`frameDiv${index}`;
+
+        // 테이블 생성
+        let table = document.createElement('table');
+        table.classList.add('table', 'table-striped', 'table-bordered'); // Bootstrap 스타일 적용
+
+        // 테이블 헤더 생성
+        let thead = document.createElement('thead');
+        let headerRow = document.createElement('tr');
+
+        const headers = ["Index", "Timestamp", "Time Interval", "Content"];
+        headers.forEach(headerText => {
+            let th = document.createElement('th');
+            th.textContent = headerText;
+            headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // 테이블 바디 생성
+        let tbody = document.createElement('tbody');
+        tbody.setAttribute('id', `logTableBody${index}`); // 이후에 행을 추가하기 위해 ID를 설정
+        table.appendChild(tbody);
+
+        // logFrame div에 테이블 추가
+        frameDiv.append(table);
+        logFrame.appendChild(frameDiv);
+    }
+
+
+    // 새로운 로그 행을 추가하는 함수
+    function addTableRow(index) {
+        let tbody = document.getElementById(`logTableBody${index}`);
+        const log = logs[index][logs[index].length - 1]; // logs 배열의 마지막 원소
+        if (log) {
+
+        let row = document.createElement('tr');
+
+        // Index
+        let idxCell = document.createElement('td');
+        idxCell.textContent = log.idx;
+        row.appendChild(idxCell);
+
+        // Timestamp
+        let timestampCell = document.createElement('td');
+        let date = new Date(log.timestamp);
+        timestampCell.textContent = date.toLocaleString(); // 날짜 포맷팅
+        row.appendChild(timestampCell);
+
+        // Time Interval
+        let intervalCell = document.createElement('td');
+        intervalCell.textContent = log["time interval"] !== null ? log["time interval"] : "N/A";
+        row.appendChild(intervalCell);
+
+        // Content
+        let contentCell = document.createElement('td');
+        contentCell.textContent = log.content;
+        row.appendChild(contentCell);
+
+        tbody.appendChild(row);
+        }
+    }
+    
+    function showProblem(index) {
+    const problems = document.querySelectorAll('[id^="problemDiv"]');
+    const frames = document.querySelectorAll('[id^="frameDiv"]')
+    const buttons = document.querySelectorAll('[id^="problemBtn"]');
+
+    // Hide all problems and remove 'selected' class from all buttons
+    problems.forEach((div) => {
+        div.style.height = "0";
+        div.style.overflow = 'hidden';
+    });
+    buttons.forEach((btn) => {
+        btn.classList.remove('selected');
+    });
+    frames.forEach((div) => {
+        div.style.height = "0";
+        div.style.overflow = 'hidden';
+    });
+    //add deactive log to previous problem
+    editor = editors[index]
+    if(currentProblem != index) {
+        logs[currentProblem].push({
+                    "idx": "d",
+                    "timestamp": Date.now(),
+                    "time interval": null,
+                    "content": editor.getValue()
+                });
+            }
+        addTableRow(currentProblem);
+
+    logs[index].push({
+        "idx": "a",
+        "timestamp": Date.now(),
+        "time interval": null,
+        "content": editor.getValue()
+    })
+    addTableRow(index);
+    ;
+    // Show the selected problem and add 'selected' class to the corresponding button
+    document.getElementById(`problemDiv${index}`).style.height = 'auto';
+    document.getElementById(`problemDiv${index}`).style.overflow = 'visible';
+    document.getElementById(`problemBtn${index}`).classList.add('selected');
+    document.getElementById(`frameDiv${index}`).style.height = 'auto';
+    document.getElementById(`frameDiv${index}`).style.height = 'visible';
+
+
+    currentProblem = index;
+}
+
+        function setEditorMode(editor, language) {
+            if (language.toLowerCase() === 'c') {
+                editor.setOption('mode', 'text/x-csrc');
+            } else if (language.toLowerCase() === 'python') {
+                editor.setOption('mode', 'python');
+            }
+        }
+
+        function refineStderr(stderr) {
+            // Same implementation as before
+            let lines = stderr.split('\n');
+            const ignorePatterns = [
+                /deprecated/i,
+                /warning:/i,
+                /note:/i,
+                /File ".*", line \d+/i,
+                /.*:\d+:\d+:/,
+                /^\s*\^+/
+            ];
+            lines = lines.filter(line => {
+                return !ignorePatterns.some(pattern => pattern.test(line));
+            });
+            const maxLines = 5;
+            if (lines.length > maxLines) {
+                lines = lines.slice(0, maxLines);
+                lines.push('... (truncated)');
+            }
+            return lines.join('\n');
+        }
+window.addEventListener('beforeunload', function (e) {
+    const hasUnsavedChanges = Object.values(isDirtyFlags).some(flag => flag === true);
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+
+    </script>
+    <style>
+        .selected {
+            background-color: gray;
+            color: white;
+        }
+        .submitted {
+            background-color: lightgray;
+            color: #6c757d;
+        }
+        .unsuccess {
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+        .success {
+            background-color: #198754 !important;
+            color: white !important;
+        }
+        .CodeMirror {
+            font-family: 'JetBrains Mono', 'Pretendard', monospace !important;
+            font-feature-settings: "liga" 0, "calt" 0 !important;
+        }
+        .debug-text {
+            font-size: 12px; /* 디버그 텍스트만 작은 크기로 설정 */
+        }
+
+        .debug-text code {
+            font-size: inherit; /* <code> 태그 안의 텍스트는 원래 크기 유지 */
+        }
+            /* 오른쪽 Output Div 스타일 */
+        #output, .output {
+        background-color: #e9f7ef;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        margin-top: 20px;
+        padding: 15px;
+        overflow-y: auto; /* 넘칠 때 스크롤 */
+        white-space: pre-wrap;
+        font-family: 'JetBrains Mono', 'Pretendard', monospace;
+        }
+
+        .editor-area {
+        border: 1px solid #ccc;
+        padding: 10px;
+        }
+    </style>
+
+{% endblock %}
