@@ -1,5 +1,5 @@
 # Codelog: Process-based Programming Assessment & Behavior Analysis System
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18439501.svg)](https://doi.org/10.5281/zenodo.18439501)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18440045.svg)](https://doi.org/10.5281/zenodo.18440045)
 
 ## Introduction
 
@@ -72,4 +72,4 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial-
 ## 5. Citation (Required)
 
 To ensure academic integrity and support the sustainability of this research, please cite this system in any research papers or derivative software:
-> **Chung, S. (2026). Codelog: Process-based Programming Assessment & Behavior Analysis System (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.18439501**
+> **Chung, S. (2026). Codelog: Process-based Programming Assessment & Behavior Analysis System (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.18440045**
