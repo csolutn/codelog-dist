@@ -31,6 +31,21 @@ Use Docker Compose to build and start all containers in detached mode.
 docker-compose up -d --build
 ```
 
+### Demo Mode (optional, off by default)
+
+For a public demo, set `DEMO_ALIAS` in `.env` to the alias of a sheet you created on the admin page:
+
+```bash
+DEMO_ALIAS=demo
+```
+
+The first page then shows a **Start with a demo account** button. Each visitor gets a fresh account (`demo-xxxxxx`), the sheet opens right away, and the Log page replays how the visitor wrote each answer.
+For a class, leave `DEMO_ALIAS` unset (or delete the line) and restart the app: the button and the hint disappear, and nobody can sign in without an ID, name and password.
+
+```bash
+docker-compose up -d app
+```
+
 ## System Structure & Port Mapping
 
 The system is built on a microservices architecture. All services are isolated within Docker containers and communicate via an internal bridge network.

@@ -27,6 +27,9 @@
 
     document.addEventListener('touchstart', function () {}, { passive: true });
 
+    function showAdminMenu() {
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-hidden'));
+    }
     function logout() {
         fetch('/logout', { method: 'POST' })
             .then(res => {
@@ -111,6 +114,7 @@
             border-radius: 4px;
             color: darkgray;
         }
+    .navbar .admin-hidden { display: none !important; }  /* Bootstrap의 .d-sm-block보다 우선 */
     .footer {
         min-height: 5vh; /* Bootstrap 기본 Navbar 높이와 동일 */
         padding: 24px 0 16px;
@@ -199,12 +203,13 @@ body:hover *::-webkit-scrollbar {
                             }
                         }
                     </script>
-                    {% if is_admin %}
-                    <!-- 관리자만 볼 수 있는 메뉴 항목 -->
-                    <li class="nav-item d-none d-sm-block">
+                    <!-- 관리자 메뉴: 늘 넣어 두고 관리자가 아니면 숨김.
+                         첫 화면에서 로그인하면 페이지를 다시 그리지 않으므로 showAdminMenu()로 보여줌 -->
+                    {% set admin_hidden = '' if is_admin else ' admin-hidden' %}
+                    <li class="nav-item d-none d-sm-block admin-only{{ admin_hidden }}">
                         <a class="nav-link" href="/play">Play</a>
                     </li>
-                    <li class="nav-item d-none d-sm-block">
+                    <li class="nav-item d-none d-sm-block admin-only{{ admin_hidden }}">
                         <a class="nav-link" href="/admin">Admin</a>
                     </li>
                     <!--
@@ -214,14 +219,13 @@ body:hover *::-webkit-scrollbar {
                 -->
                 </ul>
 
-                    <div class="ms-auto mt-1" >
+                    <div class="ms-auto mt-1 admin-only{{ admin_hidden }}" >
                         <select id="dbSelector" class="form-select d-flex form-select-sm" style="width: 150px;align-content: right;" onchange="switchDB(this.value)" >
                             <option value="">Change DB</option>
                             <option value="ACTIVE">ACTIVE</option>
                             <option value="ARCHIVE">ARCHIVE</option>
                         </select>
                     </div>
-                    {% endif %}
             </div>
         </div>
     </nav>

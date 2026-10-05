@@ -31,7 +31,7 @@
     <div class="row mb-4">
         <div class="{% if pw=='true' %}col-md-2{% else %}col-md-3{% endif %}">
             <label for="aliasInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Alias:')}}</label>
-            <input type="text" id="aliasInput" class="form-control" autocomplete="off" {% if pw=='true' %} required {% endif %}>
+            <input type="text" id="aliasInput" class="form-control" autocomplete="off" value="{{ request.args.get('alias') or demo_alias }}" {% if pw=='true' %} required {% endif %}>
         </div>
         <div class="col-md-3">
             <label for="studentIdInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Student ID:')}}</label>
@@ -59,6 +59,16 @@
         {% endif %}
         </div>
     </div>
+    {% if demo_alias %}
+    <div class="alert alert-success d-flex flex-wrap align-items-center" role="alert" style="gap: 12px;">
+        <span>{{_('Try it out with the sample problems (alias <b>%(alias)s</b>). After you submit, Log replays how you wrote your code.', alias=demo_alias)}}</span>
+        {% if studentid == "" %}
+        <form method="post" action="/demo_login" class="m-0">
+            <button type="submit" class="btn btn-success btn-sm">{{_('Start with a demo account')}}</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
     {% if pw =='true' and studentid == "" %}
     <div id = "alertMessage">
         <div id="alertMessage-lg" class="alert alert-info d-none d-sm-none d-md-block d-lg-block" role="alert"> 
@@ -106,6 +116,10 @@
     document.addEventListener('DOMContentLoaded', function() {
         renderProblem(currentProblem, null); // Pass null for problemAlias initially
         flag = 0;
+        // 로그인한 상태로 ?alias=...가 오면 (데모 시작 등) 바로 문제를 엶
+        if (new URLSearchParams(location.search).get('alias') && login) {
+            document.getElementById('confirmBtn').click();
+        }
     });
 const pw = {{pw if pw else 'true'}};
 const login= {{'true' if name else 'false'}};
@@ -129,6 +143,7 @@ document.getElementById('confirmBtn').addEventListener('click', async function()
             message = responseData.message;
             status = responseData.status;
             if(status != "success") alert(message);
+            if(responseData.is_admin) showAdminMenu();
             if (message === "Account created and logged in successfully!" || message === "새로운 계정으로 로그인되었습니다") {
                 alert(message);
             }

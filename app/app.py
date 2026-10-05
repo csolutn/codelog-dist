@@ -4,7 +4,7 @@ from bcrypt import hashpw, gensalt, checkpw
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from bson import ObjectId
-import os, re, requests, json
+import os, re, requests, json, secrets
 from datetime import datetime
 from functools import wraps
 
@@ -65,6 +65,15 @@ def admin_page(view):
         return view(*args, **kwargs)
     return wrapped
 
+def login_page(view):
+    """로그인한 사용자만: 아니면 로그 페이지(로그인)로"""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if 'login' not in session:
+            return redirect('/log')
+        return view(*args, **kwargs)
+    return wrapped
+
 def admin_api(view):
     """관리자 전용 API: 관리자가 아니면 403"""
     @wraps(view)
@@ -93,7 +102,9 @@ def index():
     if 'login' in session:
         studentid  = session["login"]["studentid"]
         name = session["login"]["name"]
-    return render_template('index.html', studentid=studentid, name=name)
+    # DEMO_ALIAS: 체험용 시트. 문제 코드 칸을 미리 채우고 안내를 보여줌
+    return render_template('index.html', studentid=studentid, name=name,
+                           demo_alias=os.getenv('DEMO_ALIAS', ''))
 
 @app.route('/input')
 def input_html():
@@ -172,7 +183,7 @@ def playback():
     return render_template('playback.html')
 
 @app.route('/play')
-@admin_page
+@login_page
 def play():
     return render_template('play.html')
 
@@ -310,8 +321,9 @@ def save_response():
         return jsonify({"error": _("Failed to save the answer")}), 500
 
 @app.route('/get_log', methods=['GET'])
-@admin_api
 def get_log():
+    if 'login' not in session:
+        return jsonify({"error": "login required"}), 403
     *_, responses_collection, _ = get_collections()
     mongo_id = request.args.get('id')
     if not mongo_id:
@@ -321,7 +333,10 @@ def get_log():
         # Find the document by _id
         from bson.objectid import ObjectId
         document = responses_collection.find_one({"_id": ObjectId(mongo_id)})
-        if document is None:
+        # 학생은 자기 풀이만 재생 (관리자는 모두)
+        own = (document or {}).get('sid') == session['login']['studentid'] and \
+              (document or {}).get('name') == session['login']['name']
+        if document is None or not (own or is_admin()):
             return jsonify({"error": "No document found with the provided _id"}), 404
 
         # Return the log data
@@ -559,7 +574,7 @@ def code_login():
     *x, students_collection = get_collections()
 
     if 'login' in session :
-        return jsonify({"message": _("Login successful!"), "status": "success"})
+        return jsonify({"message": _("Login successful!"), "status": "success", "is_admin": is_admin()})
         # JSON 데이터 가져오기
     else :
         data = request.get_json()
@@ -606,7 +621,25 @@ def code_login():
         }
         if data["status"] == "success" :
             session["login"] = {"studentid": studentid, "name": name}
+        data["is_admin"] = is_admin()
         return jsonify(data)
+
+@app.route('/demo_login', methods=['POST'])
+def demo_login():
+    """체험용: 방문자마다 새 계정(demo-xxxxxx)을 만들어 로그인하고 체험용 시트를 엶"""
+    demo_alias = os.getenv('DEMO_ALIAS')
+    if not demo_alias:
+        return redirect('/')
+    if 'login' not in session:
+        *_, students_collection = get_collections()
+        studentid = "demo-" + secrets.token_hex(3)
+        students_collection.insert_one({
+            "studentid": studentid,
+            "name": "Demo",
+            "password": hash_password(secrets.token_urlsafe(16)),  # 다시 로그인할 일 없음
+        })
+        session["login"] = {"studentid": studentid, "name": "Demo"}
+    return redirect('/?alias=' + demo_alias)
     
 #admin
 @app.route('/admin')
