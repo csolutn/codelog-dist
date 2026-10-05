@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, g
+from flask import Flask, request, jsonify, render_template, session, redirect, g, send_from_directory
 from flask_babel import Babel, _
 from bcrypt import hashpw, gensalt, checkpw
 from dotenv import load_dotenv
@@ -52,6 +52,14 @@ def get_collections():
 # # 비밀번호 해시 생성 함수
 def hash_password(password):
     return hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(app.static_folder, 'favicon.ico')
+
+@app.route('/apple-touch-icon.png')
+def apple_touch_icon():
+    return send_from_directory(app.static_folder, 'icons/icon.png')
 
 @app.route('/')
 def index():

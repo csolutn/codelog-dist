@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="14" fill="#eef8ff" stroke="#c9e6fb" stroke-width="2"/>
+  <g transform="translate(32 32) scale(0.9) translate(-32 -32)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- bell -->
+    <path fill="#8fd6ff" stroke="#17a3f2" stroke-width="3.2"
+      d="M9.5 30C8.5 15.5 19.5 5.5 32.5 5.5C46 5.5 56.5 14.5 55 29C54.5 34.5 49.5 36.5 43 35.5C36 34.5 28 37 20.5 37C14 37 10 35 9.5 30Z"/>
+    <!-- "Code" -->
+    <g stroke="#0a7fe0" stroke-width="2.7">
+      <path d="M21.5 16.5C17.5 14.5 13.5 18.5 13.8 23.5C14.2 28.8 19 30.2 22.2 27.3"/>
+      <ellipse cx="27" cy="25" rx="3.1" ry="3.5"/>
+      <circle cx="35.3" cy="25.3" r="3.1"/>
+      <path d="M38.6 14.5V28.8"/>
+      <path d="M42.4 25.2L48.8 24.2C48.8 20.8 43.8 20.4 42.6 23.8C41.6 27.4 45 30 49.5 27.8"/>
+    </g>
+    <!-- tentacles: "Log" -->
+    <g stroke="#17a3f2" stroke-width="3.6">
+      <path d="M21.5 38.5C21 44.5 18 50 13.5 55.5C17 54.5 21.5 55.5 25.5 53"/>
+      <circle cx="32.5" cy="47" r="4.3"/>
+      <path d="M32.5 37.8V42.7"/>
+      <circle cx="44" cy="45" r="4"/>
+      <path d="M48 38.5V55.5C48 60 42 60.8 40.5 57.3"/>
+    </g>
+  </g>
+</svg>
