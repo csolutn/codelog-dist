@@ -6,6 +6,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 import os, re, requests, json
 from datetime import datetime
+from functools import wraps
 
 
 load_dotenv()
@@ -48,6 +49,30 @@ def get_db():
 def get_collections():
     db_selected = get_db()  # responses 전용
     return DEFAULT_DB['Problems'], DEFAULT_DB['Sheets'], db_selected['Responses'], DEFAULT_DB['Students']
+
+# 권한 검사
+admin_list = json.loads(os.getenv("ADMIN_LIST", "[]"))
+
+def is_admin():
+    return 'login' in session and session['login'] in admin_list
+
+def admin_page(view):
+    """관리자 전용 페이지: 관리자가 아니면 첫 화면으로"""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not is_admin():
+            return redirect('/')
+        return view(*args, **kwargs)
+    return wrapped
+
+def admin_api(view):
+    """관리자 전용 API: 관리자가 아니면 403"""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not is_admin():
+            return jsonify({"error": "not admin"}), 403
+        return view(*args, **kwargs)
+    return wrapped
 
 # # 비밀번호 해시 생성 함수
 def hash_password(password):
@@ -138,6 +163,7 @@ def get_problem_data(alias, studentid, name):
 
 
 @app.route('/create')
+@admin_page
 def create():
     return render_template('create.html')
 
@@ -146,10 +172,12 @@ def playback():
     return render_template('playback.html')
 
 @app.route('/play')
+@admin_page
 def play():
     return render_template('play.html')
 
 @app.route('/add_problem', methods=['POST'])
+@admin_api
 def add_problem():
     collection, sheets_collection, _, _ = get_collections()
 
@@ -192,6 +220,11 @@ def save_response():
         # 클라이언트에서 보낸 데이터 가져오기
         data = request.get_json()
         problemalias = data.get('problem_alias')
+
+        if 'login' not in session:
+            return jsonify({"error": _("Please log in first.")}), 401
+        if not is_admin() and (data.get('sid'), data.get('name')) != (session['login']['studentid'], session['login']['name']):
+            return jsonify({"error": "not your answer"}), 403
 
         # 채점 가능하면 채점하기
         test_data = get_test_data(problemalias)
@@ -241,7 +274,7 @@ def save_response():
 
             # 기존 도큐먼트 업데이트 (log 필드 업데이트)
             result = responses_collection.update_one(
-                {"_id": document_id},
+                {"_id": document_id, "sid": data['sid'], "name": data['name']},
                 {
                     "$set": {
                         "sid": data['sid'],
@@ -257,6 +290,7 @@ def save_response():
             # 업데이트 결과 확인
             if result.matched_count > 0:
                 return jsonify({"success":success, "debug":debug, "message": _("Answer updated"), "_id": {"$oid": str(document_id)}}), 200
+            return jsonify({"error": "answer not found"}), 404
         else:
             # local이면 data에서 _id 항목 삭제
             if '_id' in data:
@@ -276,6 +310,7 @@ def save_response():
         return jsonify({"error": _("Failed to save the answer")}), 500
 
 @app.route('/get_log', methods=['GET'])
+@admin_api
 def get_log():
     *_, responses_collection, _ = get_collections()
     mongo_id = request.args.get('id')
@@ -574,8 +609,6 @@ def code_login():
         return jsonify(data)
     
 #admin
-admin_list = json.loads(os.getenv("ADMIN_LIST", "[]"))
-
 @app.route('/admin')
 def admin():
     if 'login' in session and session['login'] in admin_list:
@@ -584,6 +617,7 @@ def admin():
         return redirect('/')
 
 @app.route('/add_sheet', methods=['POST'])
+@admin_api
 def add_sheet():
     collection, sheets_collection, *_ = get_collections()
 
@@ -618,6 +652,7 @@ def add_sheet():
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 @app.route('/reset_password', methods=['POST'])
+@admin_api
 def reset_password():
     *_, students_collection = get_collections()
 
@@ -641,6 +676,7 @@ def reset_password():
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
     
 @app.route('/fetch_all_students', methods=['GET'])
+@admin_api
 def fetch_all_students():
     *_, students_collection = get_collections()
 
@@ -651,6 +687,7 @@ def fetch_all_students():
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 @app.route('/search_students', methods=['GET'])
+@admin_api
 def search_students():
     *_, students_collection = get_collections()
 
@@ -675,6 +712,7 @@ def search_students():
     
 # Alias 검색 및 problem_alias 목록 반환
 @app.route("/search", methods=["POST"])
+@admin_page
 def search():
     *_, responses_collection,_ = get_collections()
 
@@ -688,6 +726,7 @@ def search():
 
 # 특정 problem_alias에 대한 데이터 반환
 @app.route("/get_responses", methods=["GET"])
+@admin_api
 def get_responses():
     *_, responses_collection,_ = get_collections()
 
@@ -706,6 +745,7 @@ def get_responses():
     return jsonify(response_list)
 
 @app.route('/update_problem', methods=['POST'])
+@admin_api
 def update_problem():
     collection, *_ = get_collections()
     data = request.json
