@@ -55,6 +55,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
     {% block head %}{% endblock %}
     <style>
@@ -161,7 +162,7 @@ body:hover *::-webkit-scrollbar {
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
                 <img src="/static/icons/icon.png" alt="CodeLog Icon" style="width: 32px; height: 32px; margin-right: 5px;">
-                CodeLog
+                <span class="brand-label">CodeLog</span>
             </a>            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -281,6 +282,13 @@ document.addEventListener('DOMContentLoaded', function () {
         font-feature-settings: "liga" 0, "calt" 0 !important;
 
     }
+        /* 로고 라벨: 아이콘과 같은 둥근 글꼴, 글자 간격은 거의 붙게 */
+        .navbar .navbar-brand .brand-label {
+            font-family: 'Comfortaa', sans-serif !important;
+            font-weight: 700;
+            letter-spacing: -0.07em;
+            color: #0b5fa8;
+        }
     </style>
 </body>
 </html>
