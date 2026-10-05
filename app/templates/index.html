@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
 <style>
+    .lang-icon { height: 1.1em; margin-left: 8px; vertical-align: -0.15em; }
     .cm-resize-handle {
         display: block;
         position: absolute;
@@ -59,16 +60,6 @@
         {% endif %}
         </div>
     </div>
-    {% if demo_alias %}
-    <div class="alert alert-success d-flex flex-wrap align-items-center" role="alert" style="gap: 12px;">
-        <span>{{_('Try it out with the sample problems (alias <b>%(alias)s</b>). After you submit, Log replays how you wrote your code.', alias=demo_alias)}}</span>
-        {% if studentid == "" %}
-        <form method="post" action="/demo_login" class="m-0">
-            <button type="submit" class="btn btn-success btn-sm">{{_('Start with a demo account')}}</button>
-        </form>
-        {% endif %}
-    </div>
-    {% endif %}
     {% if pw =='true' and studentid == "" %}
     <div id = "alertMessage">
         <div id="alertMessage-lg" class="alert alert-info d-none d-sm-none d-md-block d-lg-block" role="alert"> 
@@ -704,8 +695,11 @@ async function renderProblem(index, problemAlias) {
                         }
 
                     } else {
-                        console.error('Failed to save the answer log');
-                        alert("{{_('Failed to save the answer log')}}")
+                        // 실패 이유(상태 코드와 서버 메시지)를 함께 보여줌
+                        let reason = '';
+                        try { reason = (await response.json()).error || ''; } catch (e) {}
+                        console.error('Failed to save the answer log', response.status, reason);
+                        alert("{{_('Failed to save the answer log')}}" + ` (${response.status})` + (reason ? `\n${reason}` : ''));
                     }
                 } catch (error) {
                     console.error('Error occurred while saving the answer log:', error);
@@ -722,6 +716,13 @@ async function renderProblem(index, problemAlias) {
                         if (!data.error) {
                             // Update problem title and description
                             title.innerHTML = `<strong>${data.title || ''}</strong>`;
+                            // 언어 아이콘: 한 시트에 Python과 C가 섞여 있어도 무엇으로 쓸지 보이게
+                            const langIcons = { python: ['python/python-original.svg', 'Python'], c: ['c/c-original.svg', 'C'] };
+                            if (langIcons[data.lang]) {
+                                const [iconPath, langName] = langIcons[data.lang];
+                                title.insertAdjacentHTML('beforeend',
+                                    `<img class="lang-icon" src="https://cdn.jsdelivr.net/npm/devicon@2.16.0/icons/${iconPath}" alt="${langName}" title="${langName}">`);
+                            }
                             desc.innerHTML = data.desc || '';
 
                             // Update example section

@@ -114,6 +114,9 @@
             border-radius: 4px;
             color: darkgray;
         }
+    .demo-bar { font-size: 13px; color: #6c757d; white-space: nowrap; }
+    .navbar .demo-bar, .navbar .demo-bar .btn { font-family: 'Pretendard', sans-serif !important; }  /* 메뉴의 고정폭 글꼴 대신 */
+    .navbar .demo-bar .btn { margin: 0 !important; }  /* 페이지 공통 button 여백 무시 */
     .navbar .admin-hidden { display: none !important; }  /* Bootstrap의 .d-sm-block보다 우선 */
     .footer {
         min-height: 5vh; /* Bootstrap 기본 Navbar 높이와 동일 */
@@ -226,6 +229,21 @@ body:hover *::-webkit-scrollbar {
                             <option value="ARCHIVE">ARCHIVE</option>
                         </select>
                     </div>
+                    {% if demo_alias and (not session.get('login') or is_demo) %}
+                    <!-- 데모: 넓은 화면은 안내 + 버튼, 좁은 화면은 버튼만 -->
+                    <div class="ms-auto d-flex align-items-center demo-bar">
+                        {% if not session.get('login') %}
+                        <span class="d-none d-lg-inline me-2">{{_('Try it without signing up')}}</span>
+                        <form method="post" action="/demo_login" class="m-0">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                <span class="d-none d-lg-inline">{{_('Start with a demo account')}}</span><span class="d-lg-none">{{_('Demo')}}</span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="d-none d-lg-inline">{{_('After you submit, Log replays how you wrote your code.')}}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
             </div>
         </div>
     </nav>

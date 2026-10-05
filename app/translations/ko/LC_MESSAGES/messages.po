@@ -150,8 +150,23 @@ msgstr "문제 정보를 불러오는 중 에러가 발생하였습니다"
 msgid "No data available"
 msgstr "No data available"
 
-msgid "Try it out with the sample problems (alias <b>%(alias)s</b>). After you submit, Log replays how you wrote your code."
-msgstr "예제 문제(문제 코드 <b>%(alias)s</b>)로 체험해 보세요. 답안을 제출한 뒤 Log에서 코드를 작성한 과정을 재생할 수 있습니다."
+msgid "Try it without signing up"
+msgstr "가입 없이 체험해 보세요"
+
+msgid "Demo"
+msgstr "데모"
+
+msgid "After you submit, Log replays how you wrote your code."
+msgstr "제출한 뒤 Log에서 코드를 작성한 과정을 재생할 수 있습니다."
+
+msgid "Please log in first."
+msgstr "먼저 로그인하세요."
+
+msgid "You are logged in as someone else in another tab. Reload this page."
+msgstr "다른 탭에서 다른 계정으로 로그인했습니다. 이 페이지를 새로고침하세요."
+
+msgid "This answer was not found. Reload this page."
+msgstr "이 답안을 찾을 수 없습니다. 이 페이지를 새로고침하세요."
 
 msgid "Start with a demo account"
 msgstr "데모 계정으로 시작"

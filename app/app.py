@@ -102,9 +102,7 @@ def index():
     if 'login' in session:
         studentid  = session["login"]["studentid"]
         name = session["login"]["name"]
-    # DEMO_ALIAS: 체험용 시트. 문제 코드 칸을 미리 채우고 안내를 보여줌
-    return render_template('index.html', studentid=studentid, name=name,
-                           demo_alias=os.getenv('DEMO_ALIAS', ''))
+    return render_template('index.html', studentid=studentid, name=name)
 
 @app.route('/input')
 def input_html():
@@ -235,7 +233,7 @@ def save_response():
         if 'login' not in session:
             return jsonify({"error": _("Please log in first.")}), 401
         if not is_admin() and (data.get('sid'), data.get('name')) != (session['login']['studentid'], session['login']['name']):
-            return jsonify({"error": "not your answer"}), 403
+            return jsonify({"error": _("You are logged in as someone else in another tab. Reload this page.")}), 403
 
         # 채점 가능하면 채점하기
         test_data = get_test_data(problemalias)
@@ -301,7 +299,7 @@ def save_response():
             # 업데이트 결과 확인
             if result.matched_count > 0:
                 return jsonify({"success":success, "debug":debug, "message": _("Answer updated"), "_id": {"$oid": str(document_id)}}), 200
-            return jsonify({"error": "answer not found"}), 404
+            return jsonify({"error": _("This answer was not found. Reload this page.")}), 404
         else:
             # local이면 data에서 _id 항목 삭제
             if '_id' in data:
@@ -317,7 +315,7 @@ def save_response():
             return jsonify({"success":success, "debug":debug, "message": _("New answer created"), "_id": {"$oid": str(result.inserted_id)}}), 200
     except Exception as e:
         print(f"[save_response][ERROR] sid: {data.get('sid', 'N/A')}, log_len: {len(data.get('log', []))}, timestamp: {data.get('timestamp', 'N/A')}")
-        print(_("Error occurred while saving answer: "), e)
+        app.logger.exception("[save_response] failed")
         return jsonify({"error": _("Failed to save the answer")}), 500
 
 @app.route('/get_log', methods=['GET'])
@@ -805,10 +803,11 @@ def update_problem():
 @app.context_processor
 def inject_is_admin():
     """모든 템플릿에서 is_admin 변수를 사용 가능하게 만드는 context processor"""
-    if 'login' in session and session['login'] in admin_list:
-        return {'is_admin': True}
-    else:
-        return {'is_admin': False}
+    # demo_alias / is_demo: 상단 바의 데모 버튼과 안내
+    login = session.get('login') or {}
+    return {'is_admin': is_admin(),
+            'demo_alias': os.getenv('DEMO_ALIAS', ''),
+            'is_demo': str(login.get('studentid', '')).startswith('demo-')}
 
 @app.route('/get_selected_db')
 def get_selected_db():
