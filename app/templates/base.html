@@ -161,7 +161,7 @@ body:hover *::-webkit-scrollbar {
     <nav class="navbar navbar-expand bg-light">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <img src="/static/icons/icon.png?v=2" alt="CodeLog Icon" style="width: 32px; height: 32px; margin-right: 5px;">
+                <img src="/static/icons/icon.png?v=2" alt="CodeLog Icon" style="width: 32px; height: 32px; margin-right: 6px;">
                 <span class="brand-label">CodeLog</span>
             </a>            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -283,6 +283,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     }
         /* 로고 라벨: 아이콘과 같은 둥근 글꼴, 글자 간격은 거의 붙게 */
+        .navbar .navbar-brand {
+            display: inline-flex;   /* 아이콘과 라벨 사이 공백 문자 없애기 */
+            align-items: center;
+        }
         .navbar .navbar-brand .brand-label {
             font-family: 'Comfortaa', sans-serif !important;
             font-weight: 700;
