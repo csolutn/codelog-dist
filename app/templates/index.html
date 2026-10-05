@@ -32,7 +32,7 @@
     <div class="row mb-4">
         <div class="{% if pw=='true' %}col-md-2{% else %}col-md-3{% endif %}">
             <label for="aliasInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Alias:')}}</label>
-            <input type="text" id="aliasInput" class="form-control" autocomplete="off" value="{{ request.args.get('alias') or demo_alias }}" {% if pw=='true' %} required {% endif %}>
+            <input type="text" id="aliasInput" class="form-control" autocomplete="off" value="{{ request.args.get('alias') or (demo_alias if is_demo else '') }}" {% if pw=='true' %} required {% endif %}>
         </div>
         <div class="col-md-3">
             <label for="studentIdInput" class="form-label {% if pw=='true' %} required {% endif %}">{{_('Student ID:')}}</label>
@@ -110,6 +110,10 @@
         // 로그인한 상태로 ?alias=...가 오면 (데모 시작 등) 바로 문제를 엶
         if (new URLSearchParams(location.search).get('alias') && login) {
             document.getElementById('confirmBtn').click();
+        }
+        // 주소의 ?alias=는 한 번만 쓰고 지움: 새로고침하면 빈 칸(데모 계정은 demo)으로
+        if (new URLSearchParams(location.search).has('alias')) {
+            history.replaceState(null, '', location.pathname);
         }
     });
 const pw = {{pw if pw else 'true'}};
