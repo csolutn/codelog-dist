@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 import json
 
 # ==== 런타임/보안 로직 ====
@@ -121,7 +122,8 @@ def lambda_handler(event, context):
 async def invoke(request: Request):
     payload = await request.json()
     event = {"body": json.dumps(payload)}
-    result = lambda_handler(event, None)
+    # 실행은 스레드풀에서: 이벤트 루프를 막으면 요청이 하나씩만 처리됨
+    result = await run_in_threadpool(lambda_handler, event, None)
     status = result.get("statusCode", 200)
     body = result.get("body", "{}")
     try:
